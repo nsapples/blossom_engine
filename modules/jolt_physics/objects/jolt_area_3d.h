@@ -114,6 +114,8 @@ private:
 	float angular_damp = 0.1f;
 	float wind_pressure = 0.0f;
 	float wind_attenuation_factor = 0.0f;
+	float surface_gravity_alignment_speed = 5.0f;
+	float surface_gravity_alignment_damping = 0.5f;
 
 	OverrideMode gravity_mode = PhysicsServer3D::AREA_SPACE_OVERRIDE_DISABLED;
 	OverrideMode linear_damp_mode = PhysicsServer3D::AREA_SPACE_OVERRIDE_DISABLED;
@@ -121,6 +123,7 @@ private:
 
 	bool monitorable = false;
 	bool point_gravity = false;
+	bool surface_gravity = false;
 
 	virtual JPH::BroadPhaseLayer _get_broad_phase_layer() const override;
 	virtual JPH::ObjectLayer _get_object_layer() const override;
@@ -230,6 +233,15 @@ public:
 
 	const Vector3 &get_wind_direction() const { return wind_direction; }
 	void set_wind_direction(const Vector3 &p_wind_direction) { wind_direction = p_wind_direction; }
+
+	bool is_surface_gravity() const { return surface_gravity; }
+	void set_surface_gravity(bool p_enabled) { surface_gravity = p_enabled; }
+
+	float get_surface_gravity_alignment_speed() const { return surface_gravity_alignment_speed; }
+	void set_surface_gravity_alignment_speed(float p_speed) { surface_gravity_alignment_speed = p_speed; }
+
+	float get_surface_gravity_alignment_damping() const { return surface_gravity_alignment_damping; }
+	void set_surface_gravity_alignment_damping(float p_damping) { surface_gravity_alignment_damping = p_damping; }
 
 	Vector3 compute_gravity(const Vector3 &p_position) const;
 

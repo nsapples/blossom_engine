@@ -76,6 +76,10 @@ private:
 	Vector3 linear_surface_velocity;
 	Vector3 angular_surface_velocity;
 	Vector3 gravity;
+	Vector3 gravity_up = Vector3(0, 1, 0);
+	bool in_surface_gravity_zone = false;
+	float surface_alignment_speed = 5.0f;
+	float surface_alignment_damping = 0.5f;
 
 	Callable state_sync_callback;
 	Callable custom_integration_callback;
@@ -126,6 +130,7 @@ private:
 
 	void _update_mass_properties();
 	void _update_gravity(JPH::Body &p_jolt_body);
+	bool _find_closest_surface_normal(const Vector3 &p_position, Vector3 &r_normal) const;
 	void _update_damp();
 	void _update_kinematic_transform();
 	void _update_group_filter();
@@ -279,6 +284,8 @@ public:
 	void set_gravity_scale(float p_scale);
 
 	Vector3 get_gravity() const { return gravity; }
+	Vector3 get_gravity_up() const { return gravity_up; }
+	bool is_in_surface_gravity_zone() const { return in_surface_gravity_zone; }
 
 	float get_linear_damp() const { return linear_damp; }
 	void set_linear_damp(float p_damp);

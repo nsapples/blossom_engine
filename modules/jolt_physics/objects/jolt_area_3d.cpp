@@ -302,6 +302,15 @@ Variant JoltArea3D::get_param(PhysicsServer3D::AreaParameter p_param) const {
 		case PhysicsServer3D::AREA_PARAM_GRAVITY_POINT_UNIT_DISTANCE: {
 			return get_point_gravity_distance();
 		}
+		case PhysicsServer3D::AREA_PARAM_GRAVITY_IS_SURFACE: {
+			return is_surface_gravity();
+		}
+		case PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_SPEED: {
+			return get_surface_gravity_alignment_speed();
+		}
+		case PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_DAMPING: {
+			return get_surface_gravity_alignment_damping();
+		}
 		case PhysicsServer3D::AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE: {
 			return get_linear_damp_mode();
 		}
@@ -352,6 +361,15 @@ void JoltArea3D::set_param(PhysicsServer3D::AreaParameter p_param, const Variant
 		} break;
 		case PhysicsServer3D::AREA_PARAM_GRAVITY_POINT_UNIT_DISTANCE: {
 			set_point_gravity_distance(p_value);
+		} break;
+		case PhysicsServer3D::AREA_PARAM_GRAVITY_IS_SURFACE: {
+			set_surface_gravity(p_value);
+		} break;
+		case PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_SPEED: {
+			set_surface_gravity_alignment_speed(p_value);
+		} break;
+		case PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_DAMPING: {
+			set_surface_gravity_alignment_damping(p_value);
 		} break;
 		case PhysicsServer3D::AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE: {
 			set_linear_damp_mode((OverrideMode)(int)p_value);

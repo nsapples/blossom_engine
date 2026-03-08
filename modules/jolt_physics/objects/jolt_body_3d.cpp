@@ -36,8 +36,16 @@
 #include "../misc/jolt_type_conversions.h"
 #include "../shapes/jolt_shape_3d.h"
 #include "../spaces/jolt_broad_phase_layer.h"
+#include "../spaces/jolt_query_collectors.h"
 #include "../spaces/jolt_space_3d.h"
 #include "jolt_area_3d.h"
+
+#include "Jolt/Geometry/GJKClosestPoint.h"
+#include "Jolt/Physics/Body/BodyFilter.h"
+#include "Jolt/Physics/Collision/BroadPhase/BroadPhaseQuery.h"
+#include "Jolt/Physics/Collision/NarrowPhaseQuery.h"
+#include "Jolt/Physics/Collision/RayCast.h"
+#include "Jolt/Physics/Collision/CastResult.h"
 #include "jolt_group_filter.h"
 #include "jolt_physics_direct_body_state_3d.h"
 #include "jolt_soft_body_3d.h"
@@ -161,7 +169,33 @@ void JoltBody3D::_integrate_forces(float p_step, JPH::Body &p_jolt_body) {
 		motion_properties.SetAngularVelocity(angular_velocity);
 
 		p_jolt_body.AddForce(to_jolt(gravity / motion_properties.GetInverseMass() + constant_force));
-		p_jolt_body.AddTorque(to_jolt(constant_torque));
+
+		Vector3 total_torque = constant_torque;
+
+		// Apply alignment torque when in a surface gravity zone.
+		if (in_surface_gravity_zone) {
+			const JPH::Quat rotation = p_jolt_body.GetRotation();
+			const Vector3 current_up = to_godot(rotation.RotateAxisY());
+			const Vector3 target_up = gravity_up;
+
+			const Vector3 cross = current_up.cross(target_up);
+			const real_t sin_angle = cross.length();
+			const real_t cos_angle = current_up.dot(target_up);
+
+			if (sin_angle > CMP_EPSILON) {
+				const Vector3 axis = cross / sin_angle;
+				const real_t angle = Math::atan2(sin_angle, cos_angle);
+				const float inv_mass = motion_properties.GetInverseMass();
+				const float body_mass = (inv_mass > CMP_EPSILON) ? (1.0f / inv_mass) : 1.0f;
+
+				const Vector3 alignment_torque = axis * angle * surface_alignment_speed * body_mass;
+				const Vector3 angular_vel = to_godot(motion_properties.GetAngularVelocity());
+				const Vector3 damping_torque = -angular_vel * surface_alignment_damping * body_mass;
+				total_torque += alignment_torque + damping_torque;
+			}
+		}
+
+		p_jolt_body.AddTorque(to_jolt(total_torque));
 	}
 }
 
@@ -279,17 +313,97 @@ void JoltBody3D::_update_mass_properties() {
 	}
 }
 
+bool JoltBody3D::_find_closest_surface_normal(const Vector3 &p_position, Vector3 &r_normal) const {
+	ERR_FAIL_NULL_V(space, false);
+
+	// Cast rays in multiple directions to find the nearest surface.
+	// Primary direction is the current body's down (-gravity_up), plus lateral probes.
+	const Vector3 dirs[] = {
+		-gravity_up,
+		gravity_up,
+		Vector3(1, 0, 0),
+		Vector3(-1, 0, 0),
+		Vector3(0, 0, 1),
+		Vector3(0, 0, -1),
+	};
+
+	const float ray_length = 20.0f;
+	float closest_dist = ray_length;
+	Vector3 closest_normal;
+	bool found = false;
+
+	const JPH::NarrowPhaseQuery &narrow_phase = space->get_narrow_phase_query();
+
+	for (int d = 0; d < 6; d++) {
+		JPH::RRayCast ray(to_jolt_r(p_position), to_jolt(dirs[d] * ray_length));
+
+		JoltQueryCollectorClosest<JPH::CastRayCollector> collector;
+		JPH::RayCastSettings settings;
+		settings.mBackFaceMode = JPH::EBackFaceMode::IgnoreBackFaces;
+
+		// Use default filters - collide with everything.
+		narrow_phase.CastRay(ray, settings, collector);
+
+		if (collector.had_hit()) {
+			const JPH::RayCastResult &hit = collector.get_hit();
+			float dist = hit.mFraction * ray_length;
+
+			// Skip if the hit body is ourselves.
+			if (jolt_body != nullptr && hit.mBodyID == jolt_body->GetID()) {
+				continue;
+			}
+
+			// Only consider static/kinematic bodies.
+			JPH::Body *hit_body = space->try_get_jolt_body(hit.mBodyID);
+			if (hit_body && hit_body->GetMotionType() != JPH::EMotionType::Dynamic) {
+				if (dist < closest_dist) {
+					closest_dist = dist;
+					// Get the surface normal at the hit point.
+					JPH::RVec3 hit_point = ray.GetPointOnRay(hit.mFraction);
+					JPH::Vec3 normal = hit_body->GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, hit_point);
+					closest_normal = to_godot(normal);
+					found = true;
+				}
+			}
+		}
+	}
+
+	if (found) {
+		r_normal = closest_normal;
+	}
+	return found;
+}
+
 void JoltBody3D::_update_gravity(JPH::Body &p_jolt_body) {
 	gravity = Vector3();
 
 	const Vector3 position = to_godot(p_jolt_body.GetPosition());
 
 	bool gravity_done = false;
+	bool found_surface_gravity = false;
+	float best_alignment_speed = 5.0f;
+	float best_alignment_damping = 0.5f;
 
 	for (const JoltArea3D *area : areas) {
-		gravity_done = JoltArea3D::apply_override(gravity, area->get_gravity_mode(), [&]() {
-			return area->compute_gravity(position);
-		});
+		if (area->is_surface_gravity() && area->get_gravity_mode() != PhysicsServer3D::AREA_SPACE_OVERRIDE_DISABLED) {
+			// Surface gravity mode: find the closest surface and use its normal.
+			Vector3 surface_normal;
+			bool found = _find_closest_surface_normal(position, surface_normal);
+			if (found) {
+				Vector3 surface_grav = -surface_normal * area->get_gravity();
+				gravity_done = JoltArea3D::apply_override(gravity, area->get_gravity_mode(), [&]() {
+					return surface_grav;
+				});
+				found_surface_gravity = true;
+				gravity_up = surface_normal;
+				best_alignment_speed = area->get_surface_gravity_alignment_speed();
+				best_alignment_damping = area->get_surface_gravity_alignment_damping();
+			}
+		} else {
+			gravity_done = JoltArea3D::apply_override(gravity, area->get_gravity_mode(), [&]() {
+				return area->compute_gravity(position);
+			});
+		}
 
 		if (gravity_done) {
 			break;
@@ -301,6 +415,18 @@ void JoltBody3D::_update_gravity(JPH::Body &p_jolt_body) {
 	}
 
 	gravity *= p_jolt_body.GetMotionPropertiesUnchecked()->GetGravityFactor();
+
+	// Update surface gravity state.
+	in_surface_gravity_zone = found_surface_gravity;
+	if (found_surface_gravity) {
+		surface_alignment_speed = best_alignment_speed;
+		surface_alignment_damping = best_alignment_damping;
+	} else {
+		// Default gravity_up from gravity direction.
+		if (gravity.length_squared() > CMP_EPSILON) {
+			gravity_up = -gravity.normalized();
+		}
+	}
 }
 
 void JoltBody3D::_update_damp() {

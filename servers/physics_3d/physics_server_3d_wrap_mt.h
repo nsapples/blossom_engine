@@ -411,6 +411,18 @@ public:
 		return physics_server_3d->get_process_info(p_info);
 	}
 
+	void set_deterministic_mode(bool p_enabled) override {
+		physics_server_3d->set_deterministic_mode(p_enabled);
+	}
+
+	bool is_deterministic_mode() const override {
+		return physics_server_3d->is_deterministic_mode();
+	}
+
+	uint64_t physics_state_hash() const override {
+		return physics_server_3d->physics_state_hash();
+	}
+
 	PhysicsServer3DWrapMT(PhysicsServer3D *p_contained, bool p_create_thread);
 	~PhysicsServer3DWrapMT();
 };

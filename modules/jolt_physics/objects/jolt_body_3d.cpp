@@ -389,7 +389,7 @@ bool JoltBody3D::_find_closest_surface_normal(const Vector3 &p_position, Vector3
 
 		JoltQueryCollectorClosest<JPH::CastRayCollector> collector;
 		JPH::RayCastSettings settings;
-		settings.mBackFaceMode = JPH::EBackFaceMode::IgnoreBackFaces;
+		settings.SetBackFaceMode(JPH::EBackFaceMode::IgnoreBackFaces);
 
 		// Use default filters - collide with everything.
 		narrow_phase.CastRay(ray, settings, collector);

@@ -32,7 +32,9 @@
 
 #include "godot_area_3d.h"
 #include "godot_body_direct_state_3d.h"
+#include "godot_broad_phase_3d.h"
 #include "godot_constraint_3d.h"
+#include "godot_shape_3d.h"
 #include "godot_space_3d.h"
 
 void GodotBody3D::_mass_properties_changed() {
@@ -474,6 +476,89 @@ bool GodotBody3D::is_axis_locked(PhysicsServer3D::BodyAxis p_axis) const {
 	return locked_axis & p_axis;
 }
 
+bool GodotBody3D::_find_closest_surface_normal(const Vector3 &p_position, Vector3 &r_normal) const {
+	GodotSpace3D *space = get_space();
+	ERR_FAIL_NULL_V(space, false);
+
+	GodotBroadPhase3D *broadphase = space->get_broadphase();
+	ERR_FAIL_NULL_V(broadphase, false);
+
+	// Build an AABB around the body position to query nearby objects.
+	const real_t search_radius = 20.0;
+	AABB search_aabb(p_position - Vector3(search_radius, search_radius, search_radius), Vector3(search_radius * 2, search_radius * 2, search_radius * 2));
+
+	GodotCollisionObject3D *results[128];
+	int count = broadphase->cull_aabb(search_aabb, results, 128);
+
+	real_t closest_dist_sq = INFINITY;
+	Vector3 closest_normal;
+	bool found = false;
+
+	for (int i = 0; i < count; i++) {
+		GodotCollisionObject3D *obj = results[i];
+
+		// Only consider static and kinematic bodies as surfaces (not areas, not other dynamic bodies).
+		if (obj->get_type() != GodotCollisionObject3D::TYPE_BODY) {
+			continue;
+		}
+		// Skip self.
+		if (obj == this) {
+			continue;
+		}
+
+		GodotBody3D *other = static_cast<GodotBody3D *>(obj);
+		if (other->get_mode() != PhysicsServer3D::BODY_MODE_STATIC && other->get_mode() != PhysicsServer3D::BODY_MODE_KINEMATIC) {
+			continue;
+		}
+
+		// Check collision layers.
+		if (!(get_collision_mask() & obj->get_collision_layer())) {
+			continue;
+		}
+
+		// Find the closest point on this object's shapes.
+		for (int s = 0; s < obj->get_shape_count(); s++) {
+			if (obj->is_shape_disabled(s)) {
+				continue;
+			}
+
+			GodotShape3D *shape = obj->get_shape(s);
+			Transform3D shape_xform = obj->get_transform() * obj->get_shape_transform(s);
+			Transform3D shape_inv_xform = shape_xform.affine_inverse();
+
+			// Transform the body position into shape-local space.
+			Vector3 local_pos = shape_inv_xform.xform(p_position);
+			Vector3 closest_local = shape->get_closest_point_to(local_pos);
+			Vector3 closest_world = shape_xform.xform(closest_local);
+
+			Vector3 diff = p_position - closest_world;
+			real_t dist_sq = diff.length_squared();
+
+			if (dist_sq < closest_dist_sq) {
+				closest_dist_sq = dist_sq;
+				if (dist_sq > CMP_EPSILON) {
+					closest_normal = diff.normalized();
+				} else {
+					// Body is exactly on the surface; use shape-local approximation.
+					// Use the vector from shape center to body as the fallback normal.
+					Vector3 to_body = p_position - shape_xform.origin;
+					if (to_body.length_squared() > CMP_EPSILON) {
+						closest_normal = to_body.normalized();
+					} else {
+						closest_normal = Vector3(0, 1, 0);
+					}
+				}
+				found = true;
+			}
+		}
+	}
+
+	if (found) {
+		r_normal = closest_normal;
+	}
+	return found;
+}
+
 void GodotBody3D::integrate_forces(real_t p_step) {
 	if (mode == PhysicsServer3D::BODY_MODE_STATIC) {
 		return;
@@ -494,6 +579,11 @@ void GodotBody3D::integrate_forces(real_t p_step) {
 	total_linear_damp = 0.0;
 	total_angular_damp = 0.0;
 
+	// Track whether we're in a surface gravity zone this frame.
+	bool found_surface_gravity = false;
+	real_t best_surface_alignment_speed = 5.0;
+	real_t best_surface_alignment_damping = 0.5;
+
 	// Combine gravity and damping from overlapping areas in priority order.
 	if (ac) {
 		areas.sort();
@@ -502,20 +592,50 @@ void GodotBody3D::integrate_forces(real_t p_step) {
 			if (!gravity_done) {
 				PhysicsServer3D::AreaSpaceOverrideMode area_gravity_mode = (PhysicsServer3D::AreaSpaceOverrideMode)(int)aa[i].area->get_param(PhysicsServer3D::AREA_PARAM_GRAVITY_OVERRIDE_MODE);
 				if (area_gravity_mode != PhysicsServer3D::AREA_SPACE_OVERRIDE_DISABLED) {
-					Vector3 area_gravity;
-					aa[i].area->compute_gravity(get_transform().get_origin(), area_gravity);
-					switch (area_gravity_mode) {
-						case PhysicsServer3D::AREA_SPACE_OVERRIDE_COMBINE:
-						case PhysicsServer3D::AREA_SPACE_OVERRIDE_COMBINE_REPLACE: {
-							gravity += area_gravity;
-							gravity_done = area_gravity_mode == PhysicsServer3D::AREA_SPACE_OVERRIDE_COMBINE_REPLACE;
-						} break;
-						case PhysicsServer3D::AREA_SPACE_OVERRIDE_REPLACE:
-						case PhysicsServer3D::AREA_SPACE_OVERRIDE_REPLACE_COMBINE: {
-							gravity = area_gravity;
-							gravity_done = area_gravity_mode == PhysicsServer3D::AREA_SPACE_OVERRIDE_REPLACE;
-						} break;
-						default: {
+					// Check if this area uses surface gravity mode.
+					bool is_surface = (bool)aa[i].area->get_param(PhysicsServer3D::AREA_PARAM_GRAVITY_IS_SURFACE);
+					if (is_surface) {
+						// Surface gravity: find the closest static surface and use its normal.
+						Vector3 body_pos = get_transform().get_origin();
+						Vector3 surface_normal;
+						bool found = _find_closest_surface_normal(body_pos, surface_normal);
+						if (found) {
+							Vector3 area_gravity = -surface_normal * aa[i].area->get_gravity();
+							switch (area_gravity_mode) {
+								case PhysicsServer3D::AREA_SPACE_OVERRIDE_COMBINE:
+								case PhysicsServer3D::AREA_SPACE_OVERRIDE_COMBINE_REPLACE: {
+									gravity += area_gravity;
+									gravity_done = area_gravity_mode == PhysicsServer3D::AREA_SPACE_OVERRIDE_COMBINE_REPLACE;
+								} break;
+								case PhysicsServer3D::AREA_SPACE_OVERRIDE_REPLACE:
+								case PhysicsServer3D::AREA_SPACE_OVERRIDE_REPLACE_COMBINE: {
+									gravity = area_gravity;
+									gravity_done = area_gravity_mode == PhysicsServer3D::AREA_SPACE_OVERRIDE_REPLACE;
+								} break;
+								default: {
+								}
+							}
+							found_surface_gravity = true;
+							gravity_up = surface_normal;
+							best_surface_alignment_speed = aa[i].area->get_surface_gravity_alignment_speed();
+							best_surface_alignment_damping = aa[i].area->get_surface_gravity_alignment_damping();
+						}
+					} else {
+						Vector3 area_gravity;
+						aa[i].area->compute_gravity(get_transform().get_origin(), area_gravity);
+						switch (area_gravity_mode) {
+							case PhysicsServer3D::AREA_SPACE_OVERRIDE_COMBINE:
+							case PhysicsServer3D::AREA_SPACE_OVERRIDE_COMBINE_REPLACE: {
+								gravity += area_gravity;
+								gravity_done = area_gravity_mode == PhysicsServer3D::AREA_SPACE_OVERRIDE_COMBINE_REPLACE;
+							} break;
+							case PhysicsServer3D::AREA_SPACE_OVERRIDE_REPLACE:
+							case PhysicsServer3D::AREA_SPACE_OVERRIDE_REPLACE_COMBINE: {
+								gravity = area_gravity;
+								gravity_done = area_gravity_mode == PhysicsServer3D::AREA_SPACE_OVERRIDE_REPLACE;
+							} break;
+							default: {
+							}
 						}
 					}
 				}
@@ -606,6 +726,18 @@ void GodotBody3D::integrate_forces(real_t p_step) {
 
 	gravity *= gravity_scale;
 
+	// Update surface gravity zone state.
+	in_surface_gravity_zone = found_surface_gravity;
+	if (found_surface_gravity) {
+		surface_alignment_speed = best_surface_alignment_speed;
+		surface_alignment_damping = best_surface_alignment_damping;
+	} else {
+		// When not in a surface zone, default gravity_up from gravity direction.
+		if (gravity.length_squared() > CMP_EPSILON) {
+			gravity_up = -gravity.normalized();
+		}
+	}
+
 	prev_linear_velocity = linear_velocity;
 	prev_angular_velocity = angular_velocity;
 
@@ -632,6 +764,28 @@ void GodotBody3D::integrate_forces(real_t p_step) {
 
 			Vector3 force = gravity * mass + applied_force + constant_force;
 			Vector3 torque = applied_torque + constant_torque;
+
+			// Apply alignment torque when in a surface gravity zone.
+			if (in_surface_gravity_zone) {
+				// Current body up is the Y axis of the body's basis.
+				Vector3 current_up = get_transform().basis.get_column(1).normalized();
+				Vector3 target_up = gravity_up;
+
+				// Compute the rotation axis and angle to align current_up to target_up.
+				Vector3 cross = current_up.cross(target_up);
+				real_t sin_angle = cross.length();
+				real_t cos_angle = current_up.dot(target_up);
+
+				if (sin_angle > CMP_EPSILON) {
+					Vector3 axis = cross / sin_angle;
+					real_t angle = Math::atan2(sin_angle, cos_angle);
+
+					// Spring-damper alignment torque.
+					Vector3 alignment_torque = axis * angle * surface_alignment_speed;
+					Vector3 damping_torque = -angular_velocity * surface_alignment_damping;
+					torque += alignment_torque * mass + damping_torque * mass;
+				}
+			}
 
 			real_t damp = 1.0 - p_step * total_linear_damp;
 

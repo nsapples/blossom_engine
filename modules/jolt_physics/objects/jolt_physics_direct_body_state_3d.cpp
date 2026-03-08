@@ -42,6 +42,14 @@ Vector3 JoltPhysicsDirectBodyState3D::get_total_gravity() const {
 	return body->get_gravity();
 }
 
+Vector3 JoltPhysicsDirectBodyState3D::get_gravity_up() const {
+	Vector3 g = body->get_gravity();
+	if (g.length_squared() > CMP_EPSILON) {
+		return -g.normalized();
+	}
+	return Vector3(0, 1, 0);
+}
+
 real_t JoltPhysicsDirectBodyState3D::get_total_angular_damp() const {
 	return (real_t)body->get_total_angular_damp();
 }

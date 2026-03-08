@@ -39,6 +39,7 @@ class PhysicsDirectBodyState3DDummy : public PhysicsDirectBodyState3D {
 
 public:
 	virtual Vector3 get_total_gravity() const override { return Vector3(); }
+	virtual Vector3 get_gravity_up() const override { return Vector3(0, 1, 0); }
 	virtual real_t get_total_angular_damp() const override { return 0; }
 	virtual real_t get_total_linear_damp() const override { return 0; }
 

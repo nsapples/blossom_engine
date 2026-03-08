@@ -37,6 +37,10 @@ Vector3 GodotPhysicsDirectBodyState3D::get_total_gravity() const {
 	return body->gravity;
 }
 
+Vector3 GodotPhysicsDirectBodyState3D::get_gravity_up() const {
+	return body->get_gravity_up();
+}
+
 real_t GodotPhysicsDirectBodyState3D::get_total_angular_damp() const {
 	return body->total_angular_damp;
 }

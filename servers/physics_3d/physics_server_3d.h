@@ -47,6 +47,7 @@ protected:
 
 public:
 	virtual Vector3 get_total_gravity() const = 0;
+	virtual Vector3 get_gravity_up() const = 0;
 	virtual real_t get_total_angular_damp() const = 0;
 	virtual real_t get_total_linear_damp() const = 0;
 
@@ -323,6 +324,9 @@ public:
 		AREA_PARAM_GRAVITY_VECTOR,
 		AREA_PARAM_GRAVITY_IS_POINT,
 		AREA_PARAM_GRAVITY_POINT_UNIT_DISTANCE,
+		AREA_PARAM_GRAVITY_IS_SURFACE,
+		AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_SPEED,
+		AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_DAMPING,
 		AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE,
 		AREA_PARAM_LINEAR_DAMP,
 		AREA_PARAM_ANGULAR_DAMP_OVERRIDE_MODE,

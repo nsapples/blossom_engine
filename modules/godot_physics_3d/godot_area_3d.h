@@ -49,6 +49,9 @@ class GodotArea3D : public GodotCollisionObject3D {
 	Vector3 gravity_vector = Vector3(0, -1, 0);
 	bool gravity_is_point = false;
 	real_t gravity_point_unit_distance = 0.0;
+	bool gravity_is_surface = false;
+	real_t surface_gravity_alignment_speed = 5.0;
+	real_t surface_gravity_alignment_damping = 0.5;
 	real_t linear_damp = 0.1;
 	real_t angular_damp = 0.1;
 	real_t wind_force_magnitude = 0.0;
@@ -134,6 +137,15 @@ public:
 
 	_FORCE_INLINE_ void set_gravity_point_unit_distance(real_t scale) { gravity_point_unit_distance = scale; }
 	_FORCE_INLINE_ real_t get_gravity_point_unit_distance() const { return gravity_point_unit_distance; }
+
+	_FORCE_INLINE_ void set_gravity_is_surface(bool p_enable) { gravity_is_surface = p_enable; }
+	_FORCE_INLINE_ bool is_gravity_surface() const { return gravity_is_surface; }
+
+	_FORCE_INLINE_ void set_surface_gravity_alignment_speed(real_t p_speed) { surface_gravity_alignment_speed = p_speed; }
+	_FORCE_INLINE_ real_t get_surface_gravity_alignment_speed() const { return surface_gravity_alignment_speed; }
+
+	_FORCE_INLINE_ void set_surface_gravity_alignment_damping(real_t p_damping) { surface_gravity_alignment_damping = p_damping; }
+	_FORCE_INLINE_ real_t get_surface_gravity_alignment_damping() const { return surface_gravity_alignment_damping; }
 
 	_FORCE_INLINE_ void set_linear_damp(real_t p_linear_damp) { linear_damp = p_linear_damp; }
 	_FORCE_INLINE_ real_t get_linear_damp() const { return linear_damp; }

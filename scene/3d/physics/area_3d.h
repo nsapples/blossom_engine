@@ -51,6 +51,9 @@ private:
 	real_t gravity = 0.0;
 	bool gravity_is_point = false;
 	real_t gravity_point_unit_distance = 0.0;
+	bool gravity_is_surface = false;
+	real_t surface_gravity_alignment_speed = 5.0;
+	real_t surface_gravity_alignment_damping = 0.5;
 
 	SpaceOverride linear_damp_space_override = SPACE_OVERRIDE_DISABLED;
 	SpaceOverride angular_damp_space_override = SPACE_OVERRIDE_DISABLED;
@@ -167,6 +170,15 @@ public:
 
 	void set_gravity(real_t p_gravity);
 	real_t get_gravity() const;
+
+	void set_gravity_is_surface(bool p_enabled);
+	bool is_gravity_surface() const;
+
+	void set_surface_gravity_alignment_speed(real_t p_speed);
+	real_t get_surface_gravity_alignment_speed() const;
+
+	void set_surface_gravity_alignment_damping(real_t p_damping);
+	real_t get_surface_gravity_alignment_damping() const;
 
 	void set_linear_damp_space_override_mode(SpaceOverride p_mode);
 	SpaceOverride get_linear_damp_space_override_mode() const;

@@ -143,6 +143,15 @@ void GodotArea3D::set_param(PhysicsServer3D::AreaParameter p_param, const Varian
 		case PhysicsServer3D::AREA_PARAM_GRAVITY_POINT_UNIT_DISTANCE:
 			gravity_point_unit_distance = p_value;
 			break;
+		case PhysicsServer3D::AREA_PARAM_GRAVITY_IS_SURFACE:
+			gravity_is_surface = p_value;
+			break;
+		case PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_SPEED:
+			surface_gravity_alignment_speed = p_value;
+			break;
+		case PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_DAMPING:
+			surface_gravity_alignment_damping = p_value;
+			break;
 		case PhysicsServer3D::AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE:
 			_set_space_override_mode(linear_damping_override_mode, (PhysicsServer3D::AreaSpaceOverrideMode)(int)p_value);
 			break;
@@ -187,6 +196,12 @@ Variant GodotArea3D::get_param(PhysicsServer3D::AreaParameter p_param) const {
 			return gravity_is_point;
 		case PhysicsServer3D::AREA_PARAM_GRAVITY_POINT_UNIT_DISTANCE:
 			return gravity_point_unit_distance;
+		case PhysicsServer3D::AREA_PARAM_GRAVITY_IS_SURFACE:
+			return gravity_is_surface;
+		case PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_SPEED:
+			return surface_gravity_alignment_speed;
+		case PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_DAMPING:
+			return surface_gravity_alignment_damping;
 		case PhysicsServer3D::AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE:
 			return linear_damping_override_mode;
 		case PhysicsServer3D::AREA_PARAM_LINEAR_DAMP:

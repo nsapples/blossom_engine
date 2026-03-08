@@ -94,6 +94,7 @@ PhysicsServer3D *PhysicsServer3D::get_singleton() {
 
 void PhysicsDirectBodyState3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_total_gravity"), &PhysicsDirectBodyState3D::get_total_gravity);
+	ClassDB::bind_method(D_METHOD("get_gravity_up"), &PhysicsDirectBodyState3D::get_gravity_up);
 	ClassDB::bind_method(D_METHOD("get_total_linear_damp"), &PhysicsDirectBodyState3D::get_total_linear_damp);
 	ClassDB::bind_method(D_METHOD("get_total_angular_damp"), &PhysicsDirectBodyState3D::get_total_angular_damp);
 
@@ -167,6 +168,7 @@ void PhysicsDirectBodyState3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "inverse_inertia"), "", "get_inverse_inertia");
 	ADD_PROPERTY(PropertyInfo(Variant::BASIS, "inverse_inertia_tensor"), "", "get_inverse_inertia_tensor");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "total_gravity"), "", "get_total_gravity");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "gravity_up"), "", "get_gravity_up");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "center_of_mass"), "", "get_center_of_mass");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "center_of_mass_local"), "", "get_center_of_mass_local");
 	ADD_PROPERTY(PropertyInfo(Variant::BASIS, "principal_inertia_axes"), "", "get_principal_inertia_axes");
@@ -1067,6 +1069,9 @@ void PhysicsServer3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(AREA_PARAM_GRAVITY_VECTOR);
 	BIND_ENUM_CONSTANT(AREA_PARAM_GRAVITY_IS_POINT);
 	BIND_ENUM_CONSTANT(AREA_PARAM_GRAVITY_POINT_UNIT_DISTANCE);
+	BIND_ENUM_CONSTANT(AREA_PARAM_GRAVITY_IS_SURFACE);
+	BIND_ENUM_CONSTANT(AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_SPEED);
+	BIND_ENUM_CONSTANT(AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_DAMPING);
 	BIND_ENUM_CONSTANT(AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE);
 	BIND_ENUM_CONSTANT(AREA_PARAM_LINEAR_DAMP);
 	BIND_ENUM_CONSTANT(AREA_PARAM_ANGULAR_DAMP_OVERRIDE_MODE);

@@ -86,6 +86,10 @@ class GodotBody3D : public GodotCollisionObject3D {
 	bool calculate_center_of_mass = true;
 
 	Vector3 gravity;
+	Vector3 gravity_up = Vector3(0, 1, 0);
+	bool in_surface_gravity_zone = false;
+	real_t surface_alignment_speed = 5.0;
+	real_t surface_alignment_damping = 0.5;
 
 	real_t still_time = 0.0;
 
@@ -109,6 +113,7 @@ class GodotBody3D : public GodotCollisionObject3D {
 
 	void _mass_properties_changed();
 	virtual void _shapes_changed() override;
+	bool _find_closest_surface_normal(const Vector3 &p_position, Vector3 &r_normal) const;
 	Transform3D new_transform;
 
 	HashMap<GodotConstraint3D *, int> constraint_map;
@@ -315,6 +320,9 @@ public:
 
 	void set_axis_lock(PhysicsServer3D::BodyAxis p_axis, bool lock);
 	bool is_axis_locked(PhysicsServer3D::BodyAxis p_axis) const;
+
+	_FORCE_INLINE_ Vector3 get_gravity_up() const { return gravity_up; }
+	_FORCE_INLINE_ bool is_in_surface_gravity_zone() const { return in_surface_gravity_zone; }
 
 	void integrate_forces(real_t p_step);
 	void integrate_velocities(real_t p_step);

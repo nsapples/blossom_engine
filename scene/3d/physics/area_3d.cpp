@@ -89,6 +89,34 @@ real_t Area3D::get_gravity() const {
 	return gravity;
 }
 
+void Area3D::set_gravity_is_surface(bool p_enabled) {
+	gravity_is_surface = p_enabled;
+	PhysicsServer3D::get_singleton()->area_set_param(get_rid(), PhysicsServer3D::AREA_PARAM_GRAVITY_IS_SURFACE, p_enabled);
+	notify_property_list_changed();
+}
+
+bool Area3D::is_gravity_surface() const {
+	return gravity_is_surface;
+}
+
+void Area3D::set_surface_gravity_alignment_speed(real_t p_speed) {
+	surface_gravity_alignment_speed = p_speed;
+	PhysicsServer3D::get_singleton()->area_set_param(get_rid(), PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_SPEED, p_speed);
+}
+
+real_t Area3D::get_surface_gravity_alignment_speed() const {
+	return surface_gravity_alignment_speed;
+}
+
+void Area3D::set_surface_gravity_alignment_damping(real_t p_damping) {
+	surface_gravity_alignment_damping = p_damping;
+	PhysicsServer3D::get_singleton()->area_set_param(get_rid(), PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_DAMPING, p_damping);
+}
+
+real_t Area3D::get_surface_gravity_alignment_damping() const {
+	return surface_gravity_alignment_damping;
+}
+
 void Area3D::set_linear_damp_space_override_mode(SpaceOverride p_mode) {
 	linear_damp_space_override = p_mode;
 	PhysicsServer3D::get_singleton()->area_set_param(get_rid(), PhysicsServer3D::AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE, p_mode);
@@ -665,7 +693,16 @@ void Area3D::_validate_property(PropertyInfo &p_property) const {
 	} else if (p_property.name.begins_with("gravity") && p_property.name != "gravity_space_override") {
 		if (gravity_space_override == SPACE_OVERRIDE_DISABLED) {
 			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+		} else if (gravity_is_surface) {
+			// In surface mode, hide point/direction properties but show surface alignment settings.
+			if (p_property.name == "gravity_direction" || p_property.name == "gravity_point" || p_property.name.begins_with("gravity_point_")) {
+				p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+			}
 		} else {
+			// Hide surface alignment properties when not in surface mode.
+			if (p_property.name.begins_with("gravity_surface_alignment")) {
+				p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+			}
 			if (gravity_is_point) {
 				if (p_property.name == "gravity_direction") {
 					p_property.usage = PROPERTY_USAGE_NO_EDITOR;
@@ -705,6 +742,15 @@ void Area3D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_gravity", "gravity"), &Area3D::set_gravity);
 	ClassDB::bind_method(D_METHOD("get_gravity"), &Area3D::get_gravity);
+
+	ClassDB::bind_method(D_METHOD("set_gravity_is_surface", "enable"), &Area3D::set_gravity_is_surface);
+	ClassDB::bind_method(D_METHOD("is_gravity_surface"), &Area3D::is_gravity_surface);
+
+	ClassDB::bind_method(D_METHOD("set_surface_gravity_alignment_speed", "speed"), &Area3D::set_surface_gravity_alignment_speed);
+	ClassDB::bind_method(D_METHOD("get_surface_gravity_alignment_speed"), &Area3D::get_surface_gravity_alignment_speed);
+
+	ClassDB::bind_method(D_METHOD("set_surface_gravity_alignment_damping", "damping"), &Area3D::set_surface_gravity_alignment_damping);
+	ClassDB::bind_method(D_METHOD("get_surface_gravity_alignment_damping"), &Area3D::get_surface_gravity_alignment_damping);
 
 	ClassDB::bind_method(D_METHOD("set_linear_damp_space_override_mode", "space_override_mode"), &Area3D::set_linear_damp_space_override_mode);
 	ClassDB::bind_method(D_METHOD("get_linear_damp_space_override_mode"), &Area3D::get_linear_damp_space_override_mode);
@@ -784,6 +830,9 @@ void Area3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "gravity_point_center", PROPERTY_HINT_NONE, "suffix:m"), "set_gravity_point_center", "get_gravity_point_center");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "gravity_direction"), "set_gravity_direction", "get_gravity_direction");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "gravity", PROPERTY_HINT_RANGE, U"-32,32,0.001,or_less,or_greater,suffix:m/s\u00B2"), "set_gravity", "get_gravity");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "gravity_surface", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED), "set_gravity_is_surface", "is_gravity_surface");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "gravity_surface_alignment_speed", PROPERTY_HINT_RANGE, "0.1,50,0.1,or_greater"), "set_surface_gravity_alignment_speed", "get_surface_gravity_alignment_speed");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "gravity_surface_alignment_damping", PROPERTY_HINT_RANGE, "0,2,0.01,or_greater"), "set_surface_gravity_alignment_damping", "get_surface_gravity_alignment_damping");
 
 	ADD_GROUP("Linear Damp", "linear_damp_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "linear_damp_space_override", PROPERTY_HINT_ENUM, "Disabled,Combine,Combine-Replace,Replace,Replace-Combine", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED), "set_linear_damp_space_override_mode", "get_linear_damp_space_override_mode");

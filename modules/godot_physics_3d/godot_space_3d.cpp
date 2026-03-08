@@ -1256,6 +1256,30 @@ GodotPhysicsDirectSpaceState3D *GodotSpace3D::get_direct_state() {
 	return direct_access;
 }
 
+uint64_t GodotSpace3D::compute_state_hash() const {
+	uint32_t h = HASH_MURMUR3_SEED;
+	const SelfList<GodotBody3D> *b = active_list.first();
+	while (b) {
+		const GodotBody3D *body = b->self();
+		const Vector3 &origin = body->get_transform().origin;
+		const Vector3 &lv = body->get_linear_velocity();
+		const Vector3 &av = body->get_angular_velocity();
+
+		h = hash_murmur3_one_real(origin.x, h);
+		h = hash_murmur3_one_real(origin.y, h);
+		h = hash_murmur3_one_real(origin.z, h);
+		h = hash_murmur3_one_real(lv.x, h);
+		h = hash_murmur3_one_real(lv.y, h);
+		h = hash_murmur3_one_real(lv.z, h);
+		h = hash_murmur3_one_real(av.x, h);
+		h = hash_murmur3_one_real(av.y, h);
+		h = hash_murmur3_one_real(av.z, h);
+
+		b = b->next();
+	}
+	return hash_fmix32(h);
+}
+
 GodotSpace3D::GodotSpace3D() {
 	body_linear_velocity_sleep_threshold = GLOBAL_GET("physics/3d/sleep_threshold_linear");
 	body_angular_velocity_sleep_threshold = GLOBAL_GET("physics/3d/sleep_threshold_angular");

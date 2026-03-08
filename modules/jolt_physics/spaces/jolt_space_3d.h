@@ -131,6 +131,8 @@ public:
 
 	float get_last_step() const { return last_step; }
 
+	uint64_t compute_state_hash() const;
+
 	JPH::Body *add_object(const JoltObject3D &p_object, const JPH::BodyCreationSettings &p_settings, bool p_sleeping = false);
 	JPH::Body *add_object(const JoltObject3D &p_object, const JPH::SoftBodyCreationSettings &p_settings, bool p_sleeping = false);
 	void remove_object(const JPH::BodyID &p_jolt_id);

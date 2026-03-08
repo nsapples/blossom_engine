@@ -1669,6 +1669,7 @@ void GodotPhysicsServer3D::set_active(bool p_active) {
 
 void GodotPhysicsServer3D::init() {
 	stepper = memnew(GodotStep3D);
+	stepper->set_deterministic(deterministic_mode);
 }
 
 void GodotPhysicsServer3D::step(real_t p_step) {
@@ -1805,6 +1806,25 @@ void GodotPhysicsServer3D::_shape_col_cbk(const Vector3 &p_point_A, int p_index_
 		cbk->ptr[cbk->amount * 2 + 1] = p_point_B;
 		cbk->amount++;
 	}
+}
+
+void GodotPhysicsServer3D::set_deterministic_mode(bool p_enabled) {
+	deterministic_mode = p_enabled;
+	if (stepper) {
+		stepper->set_deterministic(p_enabled);
+	}
+}
+
+bool GodotPhysicsServer3D::is_deterministic_mode() const {
+	return deterministic_mode;
+}
+
+uint64_t GodotPhysicsServer3D::physics_state_hash() const {
+	uint64_t hash = 0;
+	for (GodotSpace3D *space : active_spaces) {
+		hash ^= space->compute_state_hash();
+	}
+	return hash;
 }
 
 GodotPhysicsServer3D *GodotPhysicsServer3D::godot_singleton = nullptr;

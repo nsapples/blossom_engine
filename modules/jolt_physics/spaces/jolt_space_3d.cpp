@@ -603,3 +603,34 @@ void JoltSpace3D::set_max_debug_contacts(int p_count) {
 }
 
 #endif
+
+uint64_t JoltSpace3D::compute_state_hash() const {
+	uint64_t h = 0;
+
+	const JPH::BodyLockInterface &lock_iface = get_lock_iface();
+	const JPH::BodyID *active_bodies = physics_system->GetActiveBodiesUnsafe(JPH::EBodyType::RigidBody);
+	const JPH::uint32 active_count = physics_system->GetNumActiveBodies(JPH::EBodyType::RigidBody);
+
+	for (JPH::uint32 i = 0; i < active_count; i++) {
+		const JPH::Body *jolt_body = lock_iface.TryGetBody(active_bodies[i]);
+		if (!jolt_body) {
+			continue;
+		}
+
+		JPH::Vec3 pos = jolt_body->GetPosition();
+		JPH::Vec3 lv = jolt_body->GetLinearVelocity();
+		JPH::Vec3 av = jolt_body->GetAngularVelocity();
+
+		h = hash_murmur3_one_real(pos.GetX(), h);
+		h = hash_murmur3_one_real(pos.GetY(), h);
+		h = hash_murmur3_one_real(pos.GetZ(), h);
+		h = hash_murmur3_one_real(lv.GetX(), h);
+		h = hash_murmur3_one_real(lv.GetY(), h);
+		h = hash_murmur3_one_real(lv.GetZ(), h);
+		h = hash_murmur3_one_real(av.GetX(), h);
+		h = hash_murmur3_one_real(av.GetY(), h);
+		h = hash_murmur3_one_real(av.GetZ(), h);
+	}
+
+	return hash_fmix32(h);
+}

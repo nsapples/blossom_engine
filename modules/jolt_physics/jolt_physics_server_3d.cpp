@@ -202,6 +202,11 @@ void JoltPhysicsServer3D::space_set_active(RID p_space, bool p_active) {
 	if (p_active) {
 		space->set_active(true);
 		active_spaces.insert(space);
+		if (deterministic_mode) {
+			JPH::PhysicsSettings settings = space->get_physics_system().GetPhysicsSettings();
+			settings.mDeterministicSimulation = true;
+			space->get_physics_system().SetPhysicsSettings(settings);
+		}
 	} else {
 		space->set_active(false);
 		active_spaces.erase(space);
@@ -1667,6 +1672,27 @@ bool JoltPhysicsServer3D::is_flushing_queries() const {
 
 int JoltPhysicsServer3D::get_process_info(ProcessInfo p_process_info) {
 	return 0;
+}
+
+void JoltPhysicsServer3D::set_deterministic_mode(bool p_enabled) {
+	deterministic_mode = p_enabled;
+	for (JoltSpace3D *space : active_spaces) {
+		JPH::PhysicsSettings settings = space->get_physics_system().GetPhysicsSettings();
+		settings.mDeterministicSimulation = p_enabled;
+		space->get_physics_system().SetPhysicsSettings(settings);
+	}
+}
+
+bool JoltPhysicsServer3D::is_deterministic_mode() const {
+	return deterministic_mode;
+}
+
+uint64_t JoltPhysicsServer3D::physics_state_hash() const {
+	uint64_t hash = 0;
+	for (JoltSpace3D *space : active_spaces) {
+		hash ^= space->compute_state_hash();
+	}
+	return hash;
 }
 
 void JoltPhysicsServer3D::free_space(JoltSpace3D *p_space) {

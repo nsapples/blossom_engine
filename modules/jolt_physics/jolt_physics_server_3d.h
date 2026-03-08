@@ -63,6 +63,7 @@ class JoltPhysicsServer3D final : public PhysicsServer3D {
 	bool active = true;
 	bool flushing_queries = false;
 	bool doing_sync = false;
+	bool deterministic_mode = false;
 
 public:
 	enum HingeJointParamJolt {
@@ -429,6 +430,10 @@ public:
 	virtual bool is_flushing_queries() const override;
 
 	virtual int get_process_info(PhysicsServer3D::ProcessInfo p_process_info) override;
+
+	virtual void set_deterministic_mode(bool p_enabled) override;
+	virtual bool is_deterministic_mode() const override;
+	virtual uint64_t physics_state_hash() const override;
 
 	bool is_on_separate_thread() const { return on_separate_thread; }
 	bool is_active() const { return active; }

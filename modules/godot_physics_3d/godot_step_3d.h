@@ -39,6 +39,7 @@ class GodotStep3D {
 
 	int iterations = 0;
 	real_t delta = 0.0;
+	bool deterministic = false;
 
 	LocalVector<LocalVector<GodotBody3D *>> body_islands;
 	LocalVector<LocalVector<GodotConstraint3D *>> constraint_islands;
@@ -52,6 +53,7 @@ class GodotStep3D {
 	void _check_suspend(const LocalVector<GodotBody3D *> &p_body_island) const;
 
 public:
+	void set_deterministic(bool p_deterministic) { deterministic = p_deterministic; }
 	void step(GodotSpace3D *p_space, real_t p_delta);
 	GodotStep3D();
 	~GodotStep3D();

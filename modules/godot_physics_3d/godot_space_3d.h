@@ -206,6 +206,8 @@ public:
 
 	bool test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::MotionParameters &p_parameters, PhysicsServer3D::MotionResult *r_result);
 
+	uint64_t compute_state_hash() const;
+
 	GodotSpace3D();
 	~GodotSpace3D();
 };

@@ -35,6 +35,12 @@
 #include "core/object/worker_thread_pool.h"
 #include "core/os/os.h"
 
+struct GodotBody3DRIDComparator {
+	bool operator()(const GodotBody3D *a, const GodotBody3D *b) const {
+		return a->get_self().get_id() < b->get_self().get_id();
+	}
+};
+
 #define BODY_ISLAND_COUNT_RESERVE 128
 #define BODY_ISLAND_SIZE_RESERVE 512
 #define ISLAND_COUNT_RESERVE 128
@@ -260,41 +266,85 @@ void GodotStep3D::step(GodotSpace3D *p_space, real_t p_delta) {
 
 	/* GENERATE CONSTRAINT ISLANDS FOR ACTIVE RIGID BODIES */
 
-	b = body_list->first();
-
 	uint32_t body_island_count = 0;
 
-	while (b) {
-		GodotBody3D *body = b->self();
+	if (deterministic) {
+		// In deterministic mode, collect active bodies and sort by RID to ensure
+		// consistent island generation order across all peers.
+		LocalVector<GodotBody3D *> sorted_bodies;
+		b = body_list->first();
+		while (b) {
+			sorted_bodies.push_back(b->self());
+			b = b->next();
+		}
+		sorted_bodies.sort_custom<GodotBody3DRIDComparator>();
 
-		if (body->get_island_step() != _step) {
-			++body_island_count;
-			if (body_islands.size() < body_island_count) {
-				body_islands.resize(body_island_count);
-			}
-			LocalVector<GodotBody3D *> &body_island = body_islands[body_island_count - 1];
-			body_island.clear();
-			body_island.reserve(BODY_ISLAND_SIZE_RESERVE);
+		for (uint32_t i = 0; i < sorted_bodies.size(); i++) {
+			GodotBody3D *body = sorted_bodies[i];
 
-			++island_count;
-			if (constraint_islands.size() < island_count) {
-				constraint_islands.resize(island_count);
-			}
-			LocalVector<GodotConstraint3D *> &constraint_island = constraint_islands[island_count - 1];
-			constraint_island.clear();
-			constraint_island.reserve(ISLAND_SIZE_RESERVE);
+			if (body->get_island_step() != _step) {
+				++body_island_count;
+				if (body_islands.size() < body_island_count) {
+					body_islands.resize(body_island_count);
+				}
+				LocalVector<GodotBody3D *> &body_island = body_islands[body_island_count - 1];
+				body_island.clear();
+				body_island.reserve(BODY_ISLAND_SIZE_RESERVE);
 
-			_populate_island(body, body_island, constraint_island);
+				++island_count;
+				if (constraint_islands.size() < island_count) {
+					constraint_islands.resize(island_count);
+				}
+				LocalVector<GodotConstraint3D *> &constraint_island = constraint_islands[island_count - 1];
+				constraint_island.clear();
+				constraint_island.reserve(ISLAND_SIZE_RESERVE);
 
-			if (body_island.is_empty()) {
-				--body_island_count;
-			}
+				_populate_island(body, body_island, constraint_island);
 
-			if (constraint_island.is_empty()) {
-				--island_count;
+				if (body_island.is_empty()) {
+					--body_island_count;
+				}
+
+				if (constraint_island.is_empty()) {
+					--island_count;
+				}
 			}
 		}
-		b = b->next();
+	} else {
+		b = body_list->first();
+
+		while (b) {
+			GodotBody3D *body = b->self();
+
+			if (body->get_island_step() != _step) {
+				++body_island_count;
+				if (body_islands.size() < body_island_count) {
+					body_islands.resize(body_island_count);
+				}
+				LocalVector<GodotBody3D *> &body_island = body_islands[body_island_count - 1];
+				body_island.clear();
+				body_island.reserve(BODY_ISLAND_SIZE_RESERVE);
+
+				++island_count;
+				if (constraint_islands.size() < island_count) {
+					constraint_islands.resize(island_count);
+				}
+				LocalVector<GodotConstraint3D *> &constraint_island = constraint_islands[island_count - 1];
+				constraint_island.clear();
+				constraint_island.reserve(ISLAND_SIZE_RESERVE);
+
+				_populate_island(body, body_island, constraint_island);
+
+				if (body_island.is_empty()) {
+					--body_island_count;
+				}
+
+				if (constraint_island.is_empty()) {
+					--island_count;
+				}
+			}
+			b = b->next();
+		}
 	}
 
 	/* GENERATE CONSTRAINT ISLANDS FOR ACTIVE SOFT BODIES */

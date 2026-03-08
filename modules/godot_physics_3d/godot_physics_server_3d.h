@@ -51,6 +51,7 @@ class GodotPhysicsServer3D : public PhysicsServer3D {
 	bool using_threads = false;
 	bool doing_sync = false;
 	bool flushing_queries = false;
+	bool deterministic_mode = false;
 
 	GodotStep3D *stepper = nullptr;
 	HashSet<GodotSpace3D *> active_spaces;
@@ -384,6 +385,10 @@ public:
 	virtual bool is_flushing_queries() const override { return flushing_queries; }
 
 	int get_process_info(ProcessInfo p_info) override;
+
+	virtual void set_deterministic_mode(bool p_enabled) override;
+	virtual bool is_deterministic_mode() const override;
+	virtual uint64_t physics_state_hash() const override;
 
 	GodotPhysicsServer3D(bool p_using_threads = false);
 	~GodotPhysicsServer3D() {}

@@ -311,6 +311,15 @@ Variant JoltArea3D::get_param(PhysicsServer3D::AreaParameter p_param) const {
 		case PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_DAMPING: {
 			return get_surface_gravity_alignment_damping();
 		}
+		case PhysicsServer3D::AREA_PARAM_WATER_DENSITY: {
+			return get_water_density();
+		}
+		case PhysicsServer3D::AREA_PARAM_WATER_LINEAR_DRAG: {
+			return get_water_linear_drag();
+		}
+		case PhysicsServer3D::AREA_PARAM_WATER_ANGULAR_DRAG: {
+			return get_water_angular_drag();
+		}
 		case PhysicsServer3D::AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE: {
 			return get_linear_damp_mode();
 		}
@@ -370,6 +379,15 @@ void JoltArea3D::set_param(PhysicsServer3D::AreaParameter p_param, const Variant
 		} break;
 		case PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_DAMPING: {
 			set_surface_gravity_alignment_damping(p_value);
+		} break;
+		case PhysicsServer3D::AREA_PARAM_WATER_DENSITY: {
+			set_water_density(p_value);
+		} break;
+		case PhysicsServer3D::AREA_PARAM_WATER_LINEAR_DRAG: {
+			set_water_linear_drag(p_value);
+		} break;
+		case PhysicsServer3D::AREA_PARAM_WATER_ANGULAR_DRAG: {
+			set_water_angular_drag(p_value);
 		} break;
 		case PhysicsServer3D::AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE: {
 			set_linear_damp_mode((OverrideMode)(int)p_value);

@@ -48,6 +48,7 @@ public:
 
 	virtual Vector3 get_total_gravity() const override;
 	virtual Vector3 get_gravity_up() const override;
+	virtual real_t get_submersion_ratio() const override;
 	virtual real_t get_total_linear_damp() const override;
 	virtual real_t get_total_angular_damp() const override;
 

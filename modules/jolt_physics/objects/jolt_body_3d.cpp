@@ -153,6 +153,56 @@ void JoltBody3D::_dequeue_call_queries() {
 void JoltBody3D::_integrate_forces(float p_step, JPH::Body &p_jolt_body) {
 	_update_gravity(p_jolt_body);
 
+	// Buoyancy from water volumes.
+	submersion_ratio = 0.0f;
+	float water_linear_damp_add = 0.0f;
+	float water_angular_damp_add = 0.0f;
+	for (const JoltArea3D *area : areas) {
+		if (!area->is_water_volume()) {
+			continue;
+		}
+
+		Transform3D area_transform = area->get_transform_unscaled();
+		Vector3 water_up = area_transform.basis.get_column(1).normalized();
+		real_t water_plane_d = water_up.dot(area_transform.origin);
+
+		// Get body AABB in world space from Jolt.
+		JPH::AABox jolt_bounds = p_jolt_body.GetWorldSpaceBounds();
+		Vector3 aabb_min = to_godot(jolt_bounds.mMin);
+		Vector3 aabb_max = to_godot(jolt_bounds.mMax);
+		Vector3 aabb_size = aabb_max - aabb_min;
+		Vector3 center = (aabb_min + aabb_max) * 0.5f;
+		Vector3 half_extents = aabb_size * 0.5f;
+
+		real_t half_proj = Math::abs(water_up.x) * half_extents.x + Math::abs(water_up.y) * half_extents.y + Math::abs(water_up.z) * half_extents.z;
+		real_t center_proj = water_up.dot(center);
+		real_t aabb_min_along_up = center_proj - half_proj;
+		real_t aabb_max_along_up = center_proj + half_proj;
+
+		real_t extent = aabb_max_along_up - aabb_min_along_up;
+		float sub = 0.0f;
+		if (extent > CMP_EPSILON) {
+			sub = CLAMP((float)(water_plane_d - aabb_min_along_up) / (float)extent, 0.0f, 1.0f);
+		}
+
+		if (sub > 0.0f) {
+			float aabb_volume = aabb_size.x * aabb_size.y * aabb_size.z;
+			float grav_len = gravity.length();
+			Vector3 buoyancy_force = area->get_water_density() * grav_len * sub * aabb_volume * water_up;
+			gravity += buoyancy_force;
+
+			water_linear_damp_add += sub * area->get_water_linear_drag();
+			water_angular_damp_add += sub * area->get_water_angular_drag();
+		}
+
+		if (sub > submersion_ratio) {
+			submersion_ratio = sub;
+		}
+	}
+
+	float effective_linear_damp = total_linear_damp + water_linear_damp_add;
+	float effective_angular_damp = total_angular_damp + water_angular_damp_add;
+
 	if (!custom_integrator) {
 		JPH::MotionProperties &motion_properties = *p_jolt_body.GetMotionPropertiesUnchecked();
 
@@ -161,11 +211,11 @@ void JoltBody3D::_integrate_forces(float p_step, JPH::Body &p_jolt_body) {
 		// consistent results across different update frequencies when using high (>1) damping values, so we apply the
 		// damping ourselves instead, before any force integration happens.
 		JPH::Vec3 linear_velocity = motion_properties.GetLinearVelocity();
-		linear_velocity *= MAX(1.0f - total_linear_damp * p_step, 0.0f);
+		linear_velocity *= MAX(1.0f - effective_linear_damp * p_step, 0.0f);
 		motion_properties.SetLinearVelocity(linear_velocity);
 
 		JPH::Vec3 angular_velocity = motion_properties.GetAngularVelocity();
-		angular_velocity *= MAX(1.0f - total_angular_damp * p_step, 0.0f);
+		angular_velocity *= MAX(1.0f - effective_angular_damp * p_step, 0.0f);
 		motion_properties.SetAngularVelocity(angular_velocity);
 
 		p_jolt_body.AddForce(to_jolt(gravity / motion_properties.GetInverseMass() + constant_force));

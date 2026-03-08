@@ -155,6 +155,7 @@ void RigidBody3D::_sync_body_state(PhysicsDirectBodyState3D *p_state) {
 
 	inverse_inertia_tensor = p_state->get_inverse_inertia_tensor();
 	gravity_up_cached = p_state->get_gravity_up();
+	submersion_ratio_cached = p_state->get_submersion_ratio();
 
 	contact_count = p_state->get_contact_count();
 
@@ -429,6 +430,10 @@ real_t RigidBody3D::get_gravity_scale() const {
 
 Vector3 RigidBody3D::get_gravity_up() const {
 	return gravity_up_cached;
+}
+
+real_t RigidBody3D::get_submersion_ratio() const {
+	return submersion_ratio_cached;
 }
 
 void RigidBody3D::set_linear_damp_mode(DampMode p_mode) {
@@ -707,6 +712,7 @@ void RigidBody3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_gravity_scale"), &RigidBody3D::get_gravity_scale);
 
 	ClassDB::bind_method(D_METHOD("get_gravity_up"), &RigidBody3D::get_gravity_up);
+	ClassDB::bind_method(D_METHOD("get_submersion_ratio"), &RigidBody3D::get_submersion_ratio);
 
 	ClassDB::bind_method(D_METHOD("set_linear_damp_mode", "linear_damp_mode"), &RigidBody3D::set_linear_damp_mode);
 	ClassDB::bind_method(D_METHOD("get_linear_damp_mode"), &RigidBody3D::get_linear_damp_mode);
@@ -776,6 +782,7 @@ void RigidBody3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material_override", PROPERTY_HINT_RESOURCE_TYPE, PhysicsMaterial::get_class_static()), "set_physics_material_override", "get_physics_material_override");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "gravity_scale", PROPERTY_HINT_RANGE, "-8,8,0.001,or_less,or_greater"), "set_gravity_scale", "get_gravity_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "gravity_up", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "", "get_gravity_up");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "submersion_ratio", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "", "get_submersion_ratio");
 	ADD_GROUP("Mass Distribution", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "center_of_mass_mode", PROPERTY_HINT_ENUM, "Auto,Custom"), "set_center_of_mass_mode", "get_center_of_mass_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "center_of_mass", PROPERTY_HINT_RANGE, "-10,10,0.01,or_less,or_greater,suffix:m"), "set_center_of_mass", "get_center_of_mass");

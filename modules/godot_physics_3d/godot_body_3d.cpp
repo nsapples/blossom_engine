@@ -724,6 +724,72 @@ void GodotBody3D::integrate_forces(real_t p_step) {
 		} break;
 	}
 
+	// Buoyancy from water volumes.
+	submersion_ratio = 0.0;
+	if (ac) {
+		const AreaCMP *aa = &areas[0];
+		for (int i = ac - 1; i >= 0; i--) {
+			if (!aa[i].area->is_water_volume()) {
+				continue;
+			}
+
+			Transform3D area_transform = aa[i].area->get_transform();
+			Vector3 water_up = area_transform.basis.get_column(1).normalized();
+			real_t water_plane_d = water_up.dot(area_transform.origin);
+
+			// Compute body's AABB in world space.
+			AABB body_aabb;
+			bool first_shape = true;
+			for (int s = 0; s < get_shape_count(); s++) {
+				if (is_shape_disabled(s)) {
+					continue;
+				}
+				Transform3D shape_xform = get_transform() * get_shape_transform(s);
+				AABB shape_aabb = get_shape(s)->get_aabb();
+				shape_aabb = shape_xform.xform(shape_aabb);
+				if (first_shape) {
+					body_aabb = shape_aabb;
+					first_shape = false;
+				} else {
+					body_aabb.merge_with(shape_aabb);
+				}
+			}
+
+			if (first_shape) {
+				continue; // No valid shapes.
+			}
+
+			// Project AABB corners onto water_up axis to find min/max.
+			Vector3 center = body_aabb.get_center();
+			Vector3 half_extents = body_aabb.size * 0.5;
+			// For an AABB, the half-extent along an arbitrary axis is:
+			real_t half_proj = Math::abs(water_up.x) * half_extents.x + Math::abs(water_up.y) * half_extents.y + Math::abs(water_up.z) * half_extents.z;
+			real_t center_proj = water_up.dot(center);
+			real_t aabb_min_along_up = center_proj - half_proj;
+			real_t aabb_max_along_up = center_proj + half_proj;
+
+			real_t extent = aabb_max_along_up - aabb_min_along_up;
+			real_t sub = 0.0;
+			if (extent > CMP_EPSILON) {
+				sub = CLAMP((water_plane_d - aabb_min_along_up) / extent, 0.0, 1.0);
+			}
+
+			if (sub > 0.0) {
+				real_t aabb_volume = body_aabb.size.x * body_aabb.size.y * body_aabb.size.z;
+				real_t grav_len = gravity.length();
+				Vector3 buoyancy_force = aa[i].area->get_water_density() * grav_len * sub * aabb_volume * water_up;
+				gravity += buoyancy_force;
+
+				total_linear_damp += sub * aa[i].area->get_water_linear_drag();
+				total_angular_damp += sub * aa[i].area->get_water_angular_drag();
+			}
+
+			if (sub > submersion_ratio) {
+				submersion_ratio = sub;
+			}
+		}
+	}
+
 	gravity *= gravity_scale;
 
 	// Update surface gravity zone state.

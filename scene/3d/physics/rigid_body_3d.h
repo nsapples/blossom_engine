@@ -69,6 +69,7 @@ private:
 	Vector3 angular_velocity;
 	Basis inverse_inertia_tensor;
 	Vector3 gravity_up_cached = Vector3(0, 1, 0);
+	real_t submersion_ratio_cached = 0.0;
 	real_t gravity_scale = 1.0;
 
 	DampMode linear_damp_mode = DAMP_MODE_COMBINE;
@@ -183,6 +184,7 @@ public:
 	real_t get_gravity_scale() const;
 
 	Vector3 get_gravity_up() const;
+	real_t get_submersion_ratio() const;
 
 	void set_linear_damp_mode(DampMode p_mode);
 	DampMode get_linear_damp_mode() const;

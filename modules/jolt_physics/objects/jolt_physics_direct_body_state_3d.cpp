@@ -46,6 +46,10 @@ Vector3 JoltPhysicsDirectBodyState3D::get_gravity_up() const {
 	return body->get_gravity_up();
 }
 
+real_t JoltPhysicsDirectBodyState3D::get_submersion_ratio() const {
+	return body->get_submersion_ratio();
+}
+
 real_t JoltPhysicsDirectBodyState3D::get_total_angular_damp() const {
 	return (real_t)body->get_total_angular_damp();
 }

@@ -162,6 +162,34 @@ int Area3D::get_priority() const {
 	return priority;
 }
 
+void Area3D::set_water_density(real_t p_water_density) {
+	water_density = p_water_density;
+	PhysicsServer3D::get_singleton()->area_set_param(get_rid(), PhysicsServer3D::AREA_PARAM_WATER_DENSITY, p_water_density);
+	notify_property_list_changed();
+}
+
+real_t Area3D::get_water_density() const {
+	return water_density;
+}
+
+void Area3D::set_water_linear_drag(real_t p_water_linear_drag) {
+	water_linear_drag = p_water_linear_drag;
+	PhysicsServer3D::get_singleton()->area_set_param(get_rid(), PhysicsServer3D::AREA_PARAM_WATER_LINEAR_DRAG, p_water_linear_drag);
+}
+
+real_t Area3D::get_water_linear_drag() const {
+	return water_linear_drag;
+}
+
+void Area3D::set_water_angular_drag(real_t p_water_angular_drag) {
+	water_angular_drag = p_water_angular_drag;
+	PhysicsServer3D::get_singleton()->area_set_param(get_rid(), PhysicsServer3D::AREA_PARAM_WATER_ANGULAR_DRAG, p_water_angular_drag);
+}
+
+real_t Area3D::get_water_angular_drag() const {
+	return water_angular_drag;
+}
+
 void Area3D::set_wind_force_magnitude(real_t p_wind_force_magnitude) {
 	wind_force_magnitude = p_wind_force_magnitude;
 	if (is_inside_tree()) {
@@ -713,6 +741,10 @@ void Area3D::_validate_property(PropertyInfo &p_property) const {
 				}
 			}
 		}
+	} else if (p_property.name.begins_with("water_") && p_property.name != "water_density") {
+		if (Math::is_zero_approx(water_density)) {
+			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+		}
 	} else if (p_property.name.begins_with("linear_damp") && p_property.name != "linear_damp_space_override") {
 		if (linear_damp_space_override == SPACE_OVERRIDE_DISABLED) {
 			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
@@ -766,6 +798,15 @@ void Area3D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_priority", "priority"), &Area3D::set_priority);
 	ClassDB::bind_method(D_METHOD("get_priority"), &Area3D::get_priority);
+
+	ClassDB::bind_method(D_METHOD("set_water_density", "water_density"), &Area3D::set_water_density);
+	ClassDB::bind_method(D_METHOD("get_water_density"), &Area3D::get_water_density);
+
+	ClassDB::bind_method(D_METHOD("set_water_linear_drag", "water_linear_drag"), &Area3D::set_water_linear_drag);
+	ClassDB::bind_method(D_METHOD("get_water_linear_drag"), &Area3D::get_water_linear_drag);
+
+	ClassDB::bind_method(D_METHOD("set_water_angular_drag", "water_angular_drag"), &Area3D::set_water_angular_drag);
+	ClassDB::bind_method(D_METHOD("get_water_angular_drag"), &Area3D::get_water_angular_drag);
 
 	ClassDB::bind_method(D_METHOD("set_wind_force_magnitude", "wind_force_magnitude"), &Area3D::set_wind_force_magnitude);
 	ClassDB::bind_method(D_METHOD("get_wind_force_magnitude"), &Area3D::get_wind_force_magnitude);
@@ -846,6 +887,11 @@ void Area3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "wind_force_magnitude", PROPERTY_HINT_RANGE, "0,10,0.001,or_greater"), "set_wind_force_magnitude", "get_wind_force_magnitude");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "wind_attenuation_factor", PROPERTY_HINT_RANGE, "0.0,3.0,0.001,or_greater"), "set_wind_attenuation_factor", "get_wind_attenuation_factor");
 	ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "wind_source_path", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Node3D"), "set_wind_source_path", "get_wind_source_path");
+
+	ADD_GROUP("Water Volume", "water_");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "water_density", PROPERTY_HINT_RANGE, "0,100,0.01,or_greater", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED), "set_water_density", "get_water_density");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "water_linear_drag", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"), "set_water_linear_drag", "get_water_linear_drag");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "water_angular_drag", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"), "set_water_angular_drag", "get_water_angular_drag");
 
 	ADD_GROUP("Audio Bus", "audio_bus_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "audio_bus_override"), "set_audio_bus_override", "is_overriding_audio_bus");

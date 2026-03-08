@@ -116,6 +116,9 @@ private:
 	float wind_attenuation_factor = 0.0f;
 	float surface_gravity_alignment_speed = 5.0f;
 	float surface_gravity_alignment_damping = 0.5f;
+	float water_density = 0.0f;
+	float water_linear_drag = 0.8f;
+	float water_angular_drag = 0.5f;
 
 	OverrideMode gravity_mode = PhysicsServer3D::AREA_SPACE_OVERRIDE_DISABLED;
 	OverrideMode linear_damp_mode = PhysicsServer3D::AREA_SPACE_OVERRIDE_DISABLED;
@@ -242,6 +245,17 @@ public:
 
 	float get_surface_gravity_alignment_damping() const { return surface_gravity_alignment_damping; }
 	void set_surface_gravity_alignment_damping(float p_damping) { surface_gravity_alignment_damping = p_damping; }
+
+	float get_water_density() const { return water_density; }
+	void set_water_density(float p_density) { water_density = p_density; }
+
+	float get_water_linear_drag() const { return water_linear_drag; }
+	void set_water_linear_drag(float p_drag) { water_linear_drag = p_drag; }
+
+	float get_water_angular_drag() const { return water_angular_drag; }
+	void set_water_angular_drag(float p_drag) { water_angular_drag = p_drag; }
+
+	bool is_water_volume() const { return water_density > 0.0f; }
 
 	Vector3 compute_gravity(const Vector3 &p_position) const;
 

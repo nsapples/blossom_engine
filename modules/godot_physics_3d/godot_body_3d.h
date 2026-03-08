@@ -90,6 +90,7 @@ class GodotBody3D : public GodotCollisionObject3D {
 	bool in_surface_gravity_zone = false;
 	real_t surface_alignment_speed = 5.0;
 	real_t surface_alignment_damping = 0.5;
+	real_t submersion_ratio = 0.0;
 
 	real_t still_time = 0.0;
 
@@ -323,6 +324,7 @@ public:
 
 	_FORCE_INLINE_ Vector3 get_gravity_up() const { return gravity_up; }
 	_FORCE_INLINE_ bool is_in_surface_gravity_zone() const { return in_surface_gravity_zone; }
+	_FORCE_INLINE_ real_t get_submersion_ratio() const { return submersion_ratio; }
 
 	void integrate_forces(real_t p_step);
 	void integrate_velocities(real_t p_step);

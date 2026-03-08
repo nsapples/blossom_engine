@@ -48,6 +48,7 @@ protected:
 public:
 	virtual Vector3 get_total_gravity() const = 0;
 	virtual Vector3 get_gravity_up() const = 0;
+	virtual real_t get_submersion_ratio() const = 0;
 	virtual real_t get_total_angular_damp() const = 0;
 	virtual real_t get_total_linear_damp() const = 0;
 
@@ -327,6 +328,9 @@ public:
 		AREA_PARAM_GRAVITY_IS_SURFACE,
 		AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_SPEED,
 		AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_DAMPING,
+		AREA_PARAM_WATER_DENSITY,
+		AREA_PARAM_WATER_LINEAR_DRAG,
+		AREA_PARAM_WATER_ANGULAR_DRAG,
 		AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE,
 		AREA_PARAM_LINEAR_DAMP,
 		AREA_PARAM_ANGULAR_DAMP_OVERRIDE_MODE,
@@ -831,6 +835,10 @@ public:
 	};
 
 	virtual int get_process_info(ProcessInfo p_info) = 0;
+
+	virtual void set_deterministic_mode(bool p_enabled) = 0;
+	virtual bool is_deterministic_mode() const = 0;
+	virtual uint64_t physics_state_hash() const = 0;
 
 	PhysicsServer3D();
 	~PhysicsServer3D();

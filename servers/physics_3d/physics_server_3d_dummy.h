@@ -40,6 +40,7 @@ class PhysicsDirectBodyState3DDummy : public PhysicsDirectBodyState3D {
 public:
 	virtual Vector3 get_total_gravity() const override { return Vector3(); }
 	virtual Vector3 get_gravity_up() const override { return Vector3(0, 1, 0); }
+	virtual real_t get_submersion_ratio() const override { return 0.0; }
 	virtual real_t get_total_angular_damp() const override { return 0; }
 	virtual real_t get_total_linear_damp() const override { return 0; }
 
@@ -445,4 +446,8 @@ public:
 	virtual bool is_flushing_queries() const override { return false; }
 
 	virtual int get_process_info(ProcessInfo p_info) override { return 0; }
+
+	virtual void set_deterministic_mode(bool p_enabled) override {}
+	virtual bool is_deterministic_mode() const override { return false; }
+	virtual uint64_t physics_state_hash() const override { return 0; }
 };

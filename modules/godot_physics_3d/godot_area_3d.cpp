@@ -152,6 +152,15 @@ void GodotArea3D::set_param(PhysicsServer3D::AreaParameter p_param, const Varian
 		case PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_DAMPING:
 			surface_gravity_alignment_damping = p_value;
 			break;
+		case PhysicsServer3D::AREA_PARAM_WATER_DENSITY:
+			water_density = p_value;
+			break;
+		case PhysicsServer3D::AREA_PARAM_WATER_LINEAR_DRAG:
+			water_linear_drag = p_value;
+			break;
+		case PhysicsServer3D::AREA_PARAM_WATER_ANGULAR_DRAG:
+			water_angular_drag = p_value;
+			break;
 		case PhysicsServer3D::AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE:
 			_set_space_override_mode(linear_damping_override_mode, (PhysicsServer3D::AreaSpaceOverrideMode)(int)p_value);
 			break;
@@ -202,6 +211,12 @@ Variant GodotArea3D::get_param(PhysicsServer3D::AreaParameter p_param) const {
 			return surface_gravity_alignment_speed;
 		case PhysicsServer3D::AREA_PARAM_SURFACE_GRAVITY_ALIGNMENT_DAMPING:
 			return surface_gravity_alignment_damping;
+		case PhysicsServer3D::AREA_PARAM_WATER_DENSITY:
+			return water_density;
+		case PhysicsServer3D::AREA_PARAM_WATER_LINEAR_DRAG:
+			return water_linear_drag;
+		case PhysicsServer3D::AREA_PARAM_WATER_ANGULAR_DRAG:
+			return water_angular_drag;
 		case PhysicsServer3D::AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE:
 			return linear_damping_override_mode;
 		case PhysicsServer3D::AREA_PARAM_LINEAR_DAMP:

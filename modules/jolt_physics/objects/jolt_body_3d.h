@@ -80,6 +80,7 @@ private:
 	bool in_surface_gravity_zone = false;
 	float surface_alignment_speed = 5.0f;
 	float surface_alignment_damping = 0.5f;
+	float submersion_ratio = 0.0f;
 
 	Callable state_sync_callback;
 	Callable custom_integration_callback;
@@ -286,6 +287,7 @@ public:
 	Vector3 get_gravity() const { return gravity; }
 	Vector3 get_gravity_up() const { return gravity_up; }
 	bool is_in_surface_gravity_zone() const { return in_surface_gravity_zone; }
+	float get_submersion_ratio() const { return submersion_ratio; }
 
 	float get_linear_damp() const { return linear_damp; }
 	void set_linear_damp(float p_damp);

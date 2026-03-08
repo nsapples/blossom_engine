@@ -54,6 +54,9 @@ class GodotArea3D : public GodotCollisionObject3D {
 	real_t surface_gravity_alignment_damping = 0.5;
 	real_t linear_damp = 0.1;
 	real_t angular_damp = 0.1;
+	real_t water_density = 0.0;
+	real_t water_linear_drag = 0.8;
+	real_t water_angular_drag = 0.5;
 	real_t wind_force_magnitude = 0.0;
 	real_t wind_attenuation_factor = 0.0;
 	Vector3 wind_source;
@@ -155,6 +158,17 @@ public:
 
 	_FORCE_INLINE_ void set_priority(int p_priority) { priority = p_priority; }
 	_FORCE_INLINE_ int get_priority() const { return priority; }
+
+	_FORCE_INLINE_ void set_water_density(real_t p_density) { water_density = p_density; }
+	_FORCE_INLINE_ real_t get_water_density() const { return water_density; }
+
+	_FORCE_INLINE_ void set_water_linear_drag(real_t p_drag) { water_linear_drag = p_drag; }
+	_FORCE_INLINE_ real_t get_water_linear_drag() const { return water_linear_drag; }
+
+	_FORCE_INLINE_ void set_water_angular_drag(real_t p_drag) { water_angular_drag = p_drag; }
+	_FORCE_INLINE_ real_t get_water_angular_drag() const { return water_angular_drag; }
+
+	_FORCE_INLINE_ bool is_water_volume() const { return water_density > 0.0; }
 
 	_FORCE_INLINE_ void set_wind_force_magnitude(real_t p_wind_force_magnitude) { wind_force_magnitude = p_wind_force_magnitude; }
 	_FORCE_INLINE_ real_t get_wind_force_magnitude() const { return wind_force_magnitude; }

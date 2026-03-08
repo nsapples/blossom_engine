@@ -62,6 +62,10 @@ private:
 
 	int priority = 0;
 
+	real_t water_density = 0.0;
+	real_t water_linear_drag = 0.8;
+	real_t water_angular_drag = 0.5;
+
 	real_t wind_force_magnitude = 0.0;
 	real_t wind_attenuation_factor = 0.0;
 	NodePath wind_source_path;
@@ -194,6 +198,15 @@ public:
 
 	void set_priority(int p_priority);
 	int get_priority() const;
+
+	void set_water_density(real_t p_water_density);
+	real_t get_water_density() const;
+
+	void set_water_linear_drag(real_t p_water_linear_drag);
+	real_t get_water_linear_drag() const;
+
+	void set_water_angular_drag(real_t p_water_angular_drag);
+	real_t get_water_angular_drag() const;
 
 	void set_wind_force_magnitude(real_t p_wind_force_magnitude);
 	real_t get_wind_force_magnitude() const;

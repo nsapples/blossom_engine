@@ -113,6 +113,9 @@ public:
 	EXBIND0(integrate_forces)
 	EXBIND0R(RequiredResult<PhysicsDirectSpaceState3D>, get_space_state)
 
+	EXBIND0RC(Vector3, get_gravity_up)
+	EXBIND0RC(real_t, get_submersion_ratio)
+
 	PhysicsDirectBodyState3DExtension();
 };
 
@@ -548,6 +551,10 @@ public:
 
 	EXBIND0RC(bool, is_flushing_queries)
 	EXBIND1R(int, get_process_info, ProcessInfo)
+
+	EXBIND1(set_deterministic_mode, bool)
+	EXBIND0RC(bool, is_deterministic_mode)
+	EXBIND0RC(uint64_t, physics_state_hash)
 
 	PhysicsServer3DExtension();
 	~PhysicsServer3DExtension();

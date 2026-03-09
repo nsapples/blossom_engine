@@ -32,6 +32,7 @@
 
 #if !defined(PHYSICS_2D_DISABLED) || !defined(PHYSICS_3D_DISABLED)
 #include "core/io/resource.h"
+#include "scene/resources/packed_scene.h"
 
 class PhysicsMaterial : public Resource {
 	GDCLASS(PhysicsMaterial, Resource);
@@ -42,6 +43,15 @@ class PhysicsMaterial : public Resource {
 	bool rough = false;
 	real_t bounce = 0.0;
 	bool absorbent = false;
+
+	// Impact properties.
+	Ref<PackedScene> impact_scene;
+	real_t damage_modifier = 1.0;
+	real_t penetration_resistance = 1.0;
+	real_t reflection_factor = 0.0;
+
+	// Footstep properties.
+	Ref<PackedScene> footstep_scene;
 
 protected:
 	static void _bind_methods();
@@ -66,5 +76,22 @@ public:
 	_FORCE_INLINE_ real_t computed_bounce() const {
 		return absorbent ? -bounce : bounce;
 	}
+
+	// Impact properties.
+	void set_impact_scene(const Ref<PackedScene> &p_scene);
+	Ref<PackedScene> get_impact_scene() const;
+
+	void set_damage_modifier(real_t p_val);
+	_FORCE_INLINE_ real_t get_damage_modifier() const { return damage_modifier; }
+
+	void set_penetration_resistance(real_t p_val);
+	_FORCE_INLINE_ real_t get_penetration_resistance() const { return penetration_resistance; }
+
+	void set_reflection_factor(real_t p_val);
+	_FORCE_INLINE_ real_t get_reflection_factor() const { return reflection_factor; }
+
+	// Footstep properties.
+	void set_footstep_scene(const Ref<PackedScene> &p_scene);
+	Ref<PackedScene> get_footstep_scene() const;
 };
 #endif // !defined(PHYSICS_2D_DISABLED) || !defined(PHYSICS_3D_DISABLED)

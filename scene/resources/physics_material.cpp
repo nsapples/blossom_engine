@@ -51,6 +51,30 @@ void PhysicsMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "rough"), "set_rough", "is_rough");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "bounce", PROPERTY_HINT_RANGE, "0,1,0.01,or_greater"), "set_bounce", "get_bounce");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "absorbent"), "set_absorbent", "is_absorbent");
+
+	// Impact properties.
+	ADD_GROUP("Impact", "impact_");
+	ClassDB::bind_method(D_METHOD("set_impact_scene", "scene"), &PhysicsMaterial::set_impact_scene);
+	ClassDB::bind_method(D_METHOD("get_impact_scene"), &PhysicsMaterial::get_impact_scene);
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "impact_scene", PROPERTY_HINT_RESOURCE_TYPE, "PackedScene"), "set_impact_scene", "get_impact_scene");
+
+	ClassDB::bind_method(D_METHOD("set_damage_modifier", "damage_modifier"), &PhysicsMaterial::set_damage_modifier);
+	ClassDB::bind_method(D_METHOD("get_damage_modifier"), &PhysicsMaterial::get_damage_modifier);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "impact_damage_modifier", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"), "set_damage_modifier", "get_damage_modifier");
+
+	ClassDB::bind_method(D_METHOD("set_penetration_resistance", "penetration_resistance"), &PhysicsMaterial::set_penetration_resistance);
+	ClassDB::bind_method(D_METHOD("get_penetration_resistance"), &PhysicsMaterial::get_penetration_resistance);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "impact_penetration_resistance", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"), "set_penetration_resistance", "get_penetration_resistance");
+
+	ClassDB::bind_method(D_METHOD("set_reflection_factor", "reflection_factor"), &PhysicsMaterial::set_reflection_factor);
+	ClassDB::bind_method(D_METHOD("get_reflection_factor"), &PhysicsMaterial::get_reflection_factor);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "impact_reflection_factor", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_reflection_factor", "get_reflection_factor");
+
+	// Footstep properties.
+	ADD_GROUP("Footstep", "footstep_");
+	ClassDB::bind_method(D_METHOD("set_footstep_scene", "scene"), &PhysicsMaterial::set_footstep_scene);
+	ClassDB::bind_method(D_METHOD("get_footstep_scene"), &PhysicsMaterial::get_footstep_scene);
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "footstep_scene", PROPERTY_HINT_RESOURCE_TYPE, "PackedScene"), "set_footstep_scene", "get_footstep_scene");
 }
 
 void PhysicsMaterial::set_friction(real_t p_val) {
@@ -71,5 +95,38 @@ void PhysicsMaterial::set_bounce(real_t p_val) {
 void PhysicsMaterial::set_absorbent(bool p_val) {
 	absorbent = p_val;
 	emit_changed();
+}
+
+void PhysicsMaterial::set_impact_scene(const Ref<PackedScene> &p_scene) {
+	impact_scene = p_scene;
+	emit_changed();
+}
+
+Ref<PackedScene> PhysicsMaterial::get_impact_scene() const {
+	return impact_scene;
+}
+
+void PhysicsMaterial::set_damage_modifier(real_t p_val) {
+	damage_modifier = p_val;
+	emit_changed();
+}
+
+void PhysicsMaterial::set_penetration_resistance(real_t p_val) {
+	penetration_resistance = p_val;
+	emit_changed();
+}
+
+void PhysicsMaterial::set_reflection_factor(real_t p_val) {
+	reflection_factor = p_val;
+	emit_changed();
+}
+
+void PhysicsMaterial::set_footstep_scene(const Ref<PackedScene> &p_scene) {
+	footstep_scene = p_scene;
+	emit_changed();
+}
+
+Ref<PackedScene> PhysicsMaterial::get_footstep_scene() const {
+	return footstep_scene;
 }
 #endif // !defined(PHYSICS_2D_DISABLED) || !defined(PHYSICS_3D_DISABLED)

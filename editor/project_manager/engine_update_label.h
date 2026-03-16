@@ -79,6 +79,7 @@ private:
 	UpdateStatus status = UpdateStatus::NONE;
 	bool checked_update = false;
 	String available_newer_version;
+	String download_url;
 
 	bool _can_check_updates() const;
 	void _check_update();

@@ -1,9 +1,9 @@
-short_name = "godot"
-name = "Godot Engine"
-major = 4
-minor = 7
-patch = 0
-status = "dev"
+short_name = "blossom"
+name = "Blossom Engine"
+major = 0
+minor = 0
+patch = 1
+status = "stable"
 module_config = ""
-website = "https://godotengine.org"
+website = "https://github.com/nsapples/blossom_engine"
 docs = "latest"

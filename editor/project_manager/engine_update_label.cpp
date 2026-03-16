@@ -47,7 +47,10 @@ bool EngineUpdateLabel::_can_check_updates() const {
 void EngineUpdateLabel::_check_update() {
 	checked_update = true;
 	_set_status(UpdateStatus::BUSY);
-	http->request("https://godotengine.org/versions.json");
+	PackedStringArray headers;
+	headers.push_back("Accept: application/vnd.github.v3+json");
+	headers.push_back("User-Agent: BlossomEngine");
+	http->request("https://api.github.com/repos/nsapples/blossom_engine/releases/latest", headers);
 }
 
 void EngineUpdateLabel::_http_request_completed(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body) {
@@ -63,103 +66,62 @@ void EngineUpdateLabel::_http_request_completed(int p_result, int p_response_cod
 		return;
 	}
 
-	Array version_array;
-	{
-		const uint8_t *r = p_body.ptr();
-		String s = String::utf8((const char *)r, p_body.size());
+	const uint8_t *r = p_body.ptr();
+	String s = String::utf8((const char *)r, p_body.size());
 
-		Variant result = JSON::parse_string(s);
-		if (result == Variant()) {
-			_set_status(UpdateStatus::ERROR);
-			_set_message(TTR("Failed to parse version JSON."), theme_cache.error_color);
-			return;
-		}
-		if (result.get_type() != Variant::ARRAY) {
-			_set_status(UpdateStatus::ERROR);
-			_set_message(TTR("Received JSON data is not a valid version array."), theme_cache.error_color);
-			return;
-		}
-		version_array = result;
+	Variant result = JSON::parse_string(s);
+	if (result == Variant() || result.get_type() != Variant::DICTIONARY) {
+		_set_status(UpdateStatus::ERROR);
+		_set_message(TTR("Failed to parse release JSON from GitHub."), theme_cache.error_color);
+		return;
 	}
 
-	UpdateMode update_mode = UpdateMode(int(EDITOR_GET("network/connection/check_for_updates")));
-	if (update_mode == UpdateMode::AUTO) {
-		if (_get_version_type(GODOT_VERSION_STATUS) == VersionType::STABLE) {
-			update_mode = UpdateMode::NEWEST_STABLE;
-		} else {
-			update_mode = UpdateMode::NEWEST_UNSTABLE;
-		}
-	}
-	bool stable_only = update_mode == UpdateMode::NEWEST_STABLE || update_mode == UpdateMode::NEWEST_PATCH;
-
-	available_newer_version = String();
-	for (const Variant &data_bit : version_array) {
-		const Dictionary version_info = data_bit;
-
-		const String base_version_string = version_info.get("name", "");
-		const PackedStringArray version_bits = base_version_string.split(".");
-
-		if (version_bits.size() < 2) {
-			continue;
-		}
-
-		int minor = version_bits[1].to_int();
-		if (version_bits[0].to_int() != GODOT_VERSION_MAJOR || minor < GODOT_VERSION_MINOR) {
-			continue;
-		}
-
-		int patch = 0;
-		if (version_bits.size() >= 3) {
-			patch = version_bits[2].to_int();
-		}
-
-		if (minor == GODOT_VERSION_MINOR && patch < GODOT_VERSION_PATCH) {
-			continue;
-		}
-
-		if (update_mode == UpdateMode::NEWEST_PATCH && minor > GODOT_VERSION_MINOR) {
-			continue;
-		}
-
-		const Array releases = version_info.get("releases", Array());
-		if (releases.is_empty()) {
-			continue;
-		}
-
-		const Dictionary newest_release = releases[0];
-		const String release_string = newest_release.get("name", "unknown");
-
-		int release_index;
-		VersionType release_type = _get_version_type(release_string, &release_index);
-
-		if (minor > GODOT_VERSION_MINOR || patch > GODOT_VERSION_PATCH) {
-			if (stable_only && release_type != VersionType::STABLE) {
-				continue;
-			}
-
-			available_newer_version = vformat("%s-%s", base_version_string, release_string);
-			break;
-		}
-
-		int current_version_index;
-		VersionType current_version_type = _get_version_type(GODOT_VERSION_STATUS, &current_version_index);
-
-		if (int(release_type) > int(current_version_type)) {
-			break;
-		}
-
-		if (int(release_type) == int(current_version_type) && release_index <= current_version_index) {
-			break;
-		}
-
-		available_newer_version = vformat("%s-%s", base_version_string, release_string);
-		break;
+	const Dictionary release_info = result;
+	String tag_name = release_info.get("tag_name", "");
+	if (tag_name.is_empty()) {
+		_set_status(UpdateStatus::ERROR);
+		_set_message(TTR("No release tag found."), theme_cache.error_color);
+		return;
 	}
 
-	if (!available_newer_version.is_empty()) {
+	// Strip leading "v" if present (e.g. "v0.0.1" -> "0.0.1").
+	if (tag_name.begins_with("v")) {
+		tag_name = tag_name.substr(1);
+	}
+
+	const PackedStringArray version_bits = tag_name.split(".");
+	if (version_bits.size() < 2) {
+		_set_status(UpdateStatus::ERROR);
+		_set_message(TTR("Invalid version format in release tag."), theme_cache.error_color);
+		return;
+	}
+
+	int remote_major = version_bits[0].to_int();
+	int remote_minor = version_bits[1].to_int();
+	int remote_patch = 0;
+	if (version_bits.size() >= 3) {
+		remote_patch = version_bits[2].to_int();
+	}
+
+	bool is_newer = false;
+	if (remote_major > GODOT_VERSION_MAJOR) {
+		is_newer = true;
+	} else if (remote_major == GODOT_VERSION_MAJOR) {
+		if (remote_minor > GODOT_VERSION_MINOR) {
+			is_newer = true;
+		} else if (remote_minor == GODOT_VERSION_MINOR && remote_patch > GODOT_VERSION_PATCH) {
+			is_newer = true;
+		}
+	}
+
+	available_newer_version = tag_name;
+	download_url = release_info.get("html_url", "https://github.com/nsapples/blossom_engine/releases");
+
+	if (is_newer) {
 		_set_status(UpdateStatus::UPDATE_AVAILABLE);
 		_set_message(vformat(TTR("Update available: %s."), available_newer_version), theme_cache.update_color);
-	} else if (available_newer_version.is_empty()) {
+	} else {
+		available_newer_version = String();
 		_set_status(UpdateStatus::UP_TO_DATE);
 	}
 }
@@ -295,7 +257,7 @@ void EngineUpdateLabel::pressed() {
 		} break;
 
 		case UpdateStatus::UPDATE_AVAILABLE: {
-			OS::get_singleton()->shell_open("https://godotengine.org/download/archive/" + available_newer_version);
+			OS::get_singleton()->shell_open(download_url);
 		} break;
 
 		default: {

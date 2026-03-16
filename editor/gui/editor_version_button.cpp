@@ -35,27 +35,20 @@
 #include "servers/display/display_server.h"
 
 String _get_version_string(EditorVersionButton::VersionFormat p_format) {
-	String main;
 	switch (p_format) {
 		case EditorVersionButton::FORMAT_BASIC: {
-			return GODOT_VERSION_FULL_CONFIG;
+			return GODOT_VERSION_NUMBER;
 		} break;
 		case EditorVersionButton::FORMAT_WITH_BUILD: {
-			main = "v" GODOT_VERSION_FULL_BUILD;
+			return vformat("v%s %s", GODOT_VERSION_NUMBER, GODOT_VERSION_NAME);
 		} break;
 		case EditorVersionButton::FORMAT_WITH_NAME_AND_BUILD: {
-			main = GODOT_VERSION_FULL_NAME;
+			return vformat("%s v%s", GODOT_VERSION_NAME, GODOT_VERSION_NUMBER);
 		} break;
 		default: {
-			ERR_FAIL_V_MSG(GODOT_VERSION_FULL_NAME, "Unexpected format: " + itos(p_format));
+			ERR_FAIL_V_MSG(GODOT_VERSION_NUMBER, "Unexpected format: " + itos(p_format));
 		} break;
 	}
-
-	String hash = GODOT_VERSION_HASH;
-	if (!hash.is_empty()) {
-		hash = vformat(" [%s]", hash.left(9));
-	}
-	return main + hash;
 }
 
 void EditorVersionButton::_notification(int p_what) {

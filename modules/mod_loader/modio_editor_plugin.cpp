@@ -221,23 +221,32 @@ void ModIOMainScreen::_on_create_ugc() {
 	add_field("visible", "0");
 	add_field("tags[]", type_tag);
 
-	// Add logo file.
+	// Add logo file (required by mod.io).
 	String logo_path = ugc_logo_input->get_text().strip_edges();
-	if (!logo_path.is_empty()) {
+	if (logo_path.is_empty()) {
+		logo_path = "res://icon.png";
+	}
+	// Try res:// path first, then globalized path.
+	Ref<FileAccess> logo_file = FileAccess::open(logo_path, FileAccess::READ);
+	if (logo_file.is_null()) {
 		String abs_logo = ProjectSettings::get_singleton()->globalize_path(logo_path);
-		Ref<FileAccess> logo_file = FileAccess::open(abs_logo, FileAccess::READ);
-		if (logo_file.is_valid()) {
-			uint64_t logo_size = logo_file->get_length();
-			PackedByteArray logo_data;
-			logo_data.resize(logo_size);
-			logo_file->get_buffer(logo_data.ptrw(), logo_size);
+		logo_file = FileAccess::open(abs_logo, FileAccess::READ);
+	}
+	if (logo_file.is_valid()) {
+		uint64_t logo_size = logo_file->get_length();
+		PackedByteArray logo_data;
+		logo_data.resize(logo_size);
+		logo_file->get_buffer(logo_data.ptrw(), logo_size);
+		logo_file.unref();
 
-			String logo_filename = logo_path.get_file();
-			String logo_header = vformat("--%s\r\nContent-Disposition: form-data; name=\"logo\"; filename=\"%s\"\r\nContent-Type: image/png\r\n\r\n", boundary, logo_filename);
-			body.append_array(logo_header.to_utf8_buffer());
-			body.append_array(logo_data);
-			body.append_array(String("\r\n").to_utf8_buffer());
-		}
+		String logo_filename = logo_path.get_file();
+		String logo_header = vformat("--%s\r\nContent-Disposition: form-data; name=\"logo\"; filename=\"%s\"\r\nContent-Type: image/png\r\n\r\n", boundary, logo_filename);
+		body.append_array(logo_header.to_utf8_buffer());
+		body.append_array(logo_data);
+		body.append_array(String("\r\n").to_utf8_buffer());
+	} else {
+		create_status->set_text("[color=red]Logo file not found: " + logo_path + "[/color]");
+		return;
 	}
 
 	String footer = "--" + boundary + "--\r\n";

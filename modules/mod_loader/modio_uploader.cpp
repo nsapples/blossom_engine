@@ -12,6 +12,7 @@
 #include "mod_validator.h"
 
 #include "core/config/project_settings.h"
+#include "core/io/config_file.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/io/json.h"
@@ -180,37 +181,64 @@ void ModIOUploader::upload_mod(const String &p_mod_path, const String &p_name, c
 
 	packer->flush();
 
-	// Step 3: Upload to mod.io.
+	// Step 3: Read mod.io ID from mod.cfg.
+	String cfg_path = p_mod_path.path_join("mod.cfg");
+	Ref<ConfigFile> cfg;
+	cfg.instantiate();
+	int modio_id = 0;
+	if (cfg->load(cfg_path) == OK) {
+		modio_id = cfg->get_value("mod", "modio_id", 0);
+	}
+
+	if (modio_id == 0) {
+		last_error = "No modio_id found in mod.cfg. Create the UGC project first.";
+		status = STATUS_ERROR;
+		emit_signal("upload_failed", last_error);
+		return;
+	}
+
+	pending_mod_id = modio_id;
+	pending_mod_name = p_name;
+	pending_mod_path = p_mod_path;
+
+	// Step 4: Upload the PCK file directly to the existing mod.
 	status = STATUS_UPLOADING;
-	status_message = "Creating mod on mod.io...";
+	status_message = "Uploading UGC file...";
 	emit_signal("status_changed", (int)status, status_message);
 
-	pending_mod_name = p_name;
-	pending_mod_summary = p_summary;
-	pending_mod_path = p_mod_path;
-	current_request = REQ_CREATE_MOD;
+	current_request = REQ_UPLOAD_FILE;
 
-	// Create the mod entry first (multipart/form-data required).
-	String url = vformat("%s/games/%d/mods", api_base_url, BLOSSOM_GAME_ID);
+	Ref<FileAccess> f = FileAccess::open(pending_pck_path, FileAccess::READ);
+	if (f.is_null()) {
+		last_error = "Failed to read PCK file for upload.";
+		status = STATUS_ERROR;
+		emit_signal("upload_failed", last_error);
+		return;
+	}
+
+	uint64_t file_size = f->get_length();
+	PackedByteArray file_data;
+	file_data.resize(file_size);
+	f->get_buffer(file_data.ptrw(), file_size);
+	f.unref();
 
 	String boundary = "----BlossomUpload" + String::num_int64(OS::get_singleton()->get_ticks_msec());
+	String file_name = pending_pck_path.get_file();
+
 	PackedByteArray body;
-	auto add_field = [&](const String &p_fname, const String &p_value) {
-		String part = vformat("--%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s\r\n", boundary, p_fname, p_value);
-		body.append_array(part.to_utf8_buffer());
-	};
+	String part_header = vformat("--%s\r\nContent-Disposition: form-data; name=\"filedata\"; filename=\"%s\"\r\nContent-Type: application/octet-stream\r\n\r\n", boundary, file_name);
+	String part_footer = vformat("\r\n--%s--\r\n", boundary);
 
-	add_field("name", p_name);
-	add_field("summary", p_summary);
-	add_field("visible", "1");
+	body.append_array(part_header.to_utf8_buffer());
+	body.append_array(file_data);
+	body.append_array(part_footer.to_utf8_buffer());
 
-	String footer = "--" + boundary + "--\r\n";
-	body.append_array(footer.to_utf8_buffer());
-
+	String url = vformat("%s/games/%d/mods/%d/files", api_base_url, BLOSSOM_GAME_ID, pending_mod_id);
 	PackedStringArray headers;
 	headers.push_back("Authorization: Bearer " + access_token);
 	headers.push_back("Content-Type: multipart/form-data; boundary=" + boundary);
 
+	print_line(vformat("[ModIO] Uploading PCK (%d bytes) to mod %d", file_data.size(), pending_mod_id));
 	http->request_raw(url, headers, HTTPClient::METHOD_POST, body);
 }
 
@@ -233,9 +261,6 @@ void ModIOUploader::_http_completed(int p_result, int p_response_code, const Pac
 			break;
 		case REQ_EMAIL_EXCHANGE:
 			_on_email_exchange_complete(p_response_code, body_str);
-			break;
-		case REQ_CREATE_MOD:
-			_on_create_mod_complete(p_response_code, body_str);
 			break;
 		case REQ_UPLOAD_FILE:
 			_on_upload_file_complete(p_response_code, body_str);
@@ -274,74 +299,6 @@ void ModIOUploader::_on_email_exchange_complete(int p_response_code, const Strin
 		status = STATUS_ERROR;
 		emit_signal("upload_failed", last_error);
 	}
-}
-
-void ModIOUploader::_on_create_mod_complete(int p_response_code, const String &p_body) {
-	if (p_response_code != 201 && p_response_code != 200) {
-		last_error = vformat("Failed to create mod (%d): %s", p_response_code, p_body);
-		status = STATUS_ERROR;
-		emit_signal("upload_failed", last_error);
-		return;
-	}
-
-	Variant parsed = JSON::parse_string(p_body);
-	if (parsed.get_type() != Variant::DICTIONARY) {
-		last_error = "Invalid response from mod.io.";
-		status = STATUS_ERROR;
-		emit_signal("upload_failed", last_error);
-		return;
-	}
-
-	Dictionary data = parsed;
-	pending_mod_id = data.get("id", 0);
-
-	if (pending_mod_id == 0) {
-		last_error = "No mod ID returned.";
-		status = STATUS_ERROR;
-		emit_signal("upload_failed", last_error);
-		return;
-	}
-
-	// Now upload the PCK file.
-	status_message = "Uploading mod file...";
-	emit_signal("status_changed", (int)status, status_message);
-	current_request = REQ_UPLOAD_FILE;
-
-	// Read the PCK file.
-	Ref<FileAccess> f = FileAccess::open(pending_pck_path, FileAccess::READ);
-	if (f.is_null()) {
-		last_error = "Failed to read PCK file for upload.";
-		status = STATUS_ERROR;
-		emit_signal("upload_failed", last_error);
-		return;
-	}
-
-	uint64_t file_size = f->get_length();
-	PackedByteArray file_data;
-	file_data.resize(file_size);
-	f->get_buffer(file_data.ptrw(), file_size);
-
-	// mod.io expects multipart form upload.
-	// HTTPRequest doesn't natively support multipart, so we build it manually.
-	String boundary = "----BlossomModUpload" + String::num_int64(OS::get_singleton()->get_ticks_msec());
-
-	PackedByteArray body;
-	String file_name = pending_pck_path.get_file();
-
-	// Build multipart body.
-	String part_header = vformat("--%s\r\nContent-Disposition: form-data; name=\"filedata\"; filename=\"%s\"\r\nContent-Type: application/octet-stream\r\n\r\n", boundary, file_name);
-	String part_footer = vformat("\r\n--%s--\r\n", boundary);
-
-	body.append_array(part_header.to_utf8_buffer());
-	body.append_array(file_data);
-	body.append_array(part_footer.to_utf8_buffer());
-
-	String url = vformat("%s/games/%d/mods/%d/files", api_base_url, BLOSSOM_GAME_ID, pending_mod_id);
-	PackedStringArray headers;
-	headers.push_back("Authorization: Bearer " + access_token);
-	headers.push_back("Content-Type: multipart/form-data; boundary=" + boundary);
-
-	http->request_raw(url, headers, HTTPClient::METHOD_POST, body);
 }
 
 void ModIOUploader::_on_upload_file_complete(int p_response_code, const String &p_body) {

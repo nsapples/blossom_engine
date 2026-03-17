@@ -17,6 +17,7 @@
 #include "core/io/file_access.h"
 #include "core/io/json.h"
 #include "core/io/pck_packer.h"
+#include "modules/zip/zip_packer.h"
 #include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
 #include "core/os/os.h"
@@ -181,6 +182,42 @@ void ModIOUploader::upload_mod(const String &p_mod_path, const String &p_name, c
 
 	packer->flush();
 
+	// Step 2b: Wrap the PCK in a zip (mod.io requires zip uploads).
+	String zip_path = pending_pck_path.replace(".pck", ".zip");
+	{
+		Ref<ZIPPacker> zipper;
+		zipper.instantiate();
+		Error zerr = zipper->open(zip_path, ZIPPacker::APPEND_CREATE);
+		if (zerr != OK) {
+			last_error = "Failed to create zip file.";
+			status = STATUS_ERROR;
+			emit_signal("upload_failed", last_error);
+			return;
+		}
+
+		// Read the PCK file and add it to the zip.
+		Ref<FileAccess> pck_file = FileAccess::open(pending_pck_path, FileAccess::READ);
+		if (pck_file.is_valid()) {
+			uint64_t pck_size = pck_file->get_length();
+			Vector<uint8_t> pck_data;
+			pck_data.resize(pck_size);
+			pck_file->get_buffer(pck_data.ptrw(), pck_size);
+			pck_file.unref();
+
+			zipper->start_file(pending_pck_path.get_file());
+			zipper->write_file(pck_data);
+			zipper->close_file();
+		}
+		zipper->close();
+
+		// Delete the standalone PCK, keep only the zip.
+		Ref<DirAccess> cleanup_da = DirAccess::open(pending_pck_path.get_base_dir());
+		if (cleanup_da.is_valid()) {
+			cleanup_da->remove(pending_pck_path.get_file());
+		}
+	}
+	pending_pck_path = zip_path;
+
 	// Step 3: Read mod.io ID from mod.cfg.
 	String cfg_path = p_mod_path.path_join("mod.cfg");
 	Ref<ConfigFile> cfg;
@@ -226,7 +263,7 @@ void ModIOUploader::upload_mod(const String &p_mod_path, const String &p_name, c
 	String file_name = pending_pck_path.get_file();
 
 	PackedByteArray body;
-	String part_header = vformat("--%s\r\nContent-Disposition: form-data; name=\"filedata\"; filename=\"%s\"\r\nContent-Type: application/octet-stream\r\n\r\n", boundary, file_name);
+	String part_header = vformat("--%s\r\nContent-Disposition: form-data; name=\"filedata\"; filename=\"%s\"\r\nContent-Type: application/zip\r\n\r\n", boundary, file_name);
 	String part_footer = vformat("\r\n--%s--\r\n", boundary);
 
 	body.append_array(part_header.to_utf8_buffer());

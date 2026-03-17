@@ -106,6 +106,7 @@
 #include "scene/main/scene_tree.h"
 #include "scene/main/shader_globals_override.h"
 #include "scene/main/status_indicator.h"
+#include "scene/main/texture_streaming_manager.h"
 #include "scene/main/timer.h"
 #include "scene/main/viewport.h"
 #include "scene/main/window.h"
@@ -460,6 +461,7 @@ void register_scene_types() {
 
 	GDREGISTER_CLASS(HTTPRequest);
 	GDREGISTER_CLASS(Timer);
+	GDREGISTER_CLASS(TextureStreamingManager);
 	GDREGISTER_CLASS(CanvasLayer);
 	GDREGISTER_CLASS(ResourcePreloader);
 	GDREGISTER_CLASS(Window);
@@ -1436,6 +1438,10 @@ void register_scene_types() {
 void unregister_scene_types() {
 	OS::get_singleton()->benchmark_begin_measure("Scene", "Unregister Types");
 
+	if (TextureStreamingManager::get_singleton()) {
+		memdelete(TextureStreamingManager::get_singleton());
+	}
+
 	SceneDebugger::deinitialize();
 
 	if constexpr (GD_IS_CLASS_ENABLED(TextureLayered)) {
@@ -1500,6 +1506,7 @@ void register_scene_singletons() {
 	GDREGISTER_CLASS(ThemeDB);
 
 	Engine::get_singleton()->add_singleton(Engine::Singleton("ThemeDB", ThemeDB::get_singleton()));
+	Engine::get_singleton()->add_singleton(Engine::Singleton("TextureStreamingManager", memnew(TextureStreamingManager)));
 
 	OS::get_singleton()->benchmark_end_measure("Scene", "Register Singletons");
 }

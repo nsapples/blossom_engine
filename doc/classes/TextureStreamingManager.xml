@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="TextureStreamingManager" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+	<brief_description>
+		Manages texture streaming based on camera distance and VRAM budget.
+	</brief_description>
+	<description>
+		The [TextureStreamingManager] is a singleton that dynamically adjusts texture resolution based on camera distance. Textures close to the camera are loaded at full resolution, while distant textures are downscaled to save VRAM.
+		The manager operates on a per-frame basis. Game code or engine systems call [method report_texture_distance] each frame for visible textures. The manager then determines the appropriate quality level for each texture and loads or unloads mip levels accordingly.
+		Quality levels are determined by distance thresholds: [member distance_full], [member distance_high], [member distance_medium], and [member distance_low]. Textures beyond [member distance_low] are kept at the lowest quality.
+		When total VRAM usage exceeds [member vram_budget_mb], the manager prioritizes downgrading distant textures first.
+		Textures that haven't been reported as visible for a prolonged period are automatically evicted to their lowest quality level.
+		Access the singleton via [code]TextureStreamingManager[/code] in GDScript:
+		[codeblock]
+		var streaming = TextureStreamingManager
+		streaming.vram_budget_mb = 1024
+		streaming.distance_full = 15.0
+		[/codeblock]
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_current_vram_usage" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the estimated current VRAM usage in bytes for all tracked textures.
+			</description>
+		</method>
+		<method name="get_streaming_stats" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Returns a dictionary with streaming statistics. Keys include:
+				- [code]tracked_textures[/code]: Total number of tracked textures.
+				- [code]vram_usage_mb[/code]: Current VRAM usage in megabytes.
+				- [code]vram_budget_mb[/code]: VRAM budget in megabytes.
+				- [code]enabled[/code]: Whether streaming is enabled.
+				- [code]quality_full[/code], [code]quality_high[/code], [code]quality_medium[/code], [code]quality_low[/code], [code]quality_lowest[/code]: Number of textures at each quality level.
+			</description>
+		</method>
+		<method name="get_tracked_texture_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the number of textures currently being tracked by the streaming manager.
+			</description>
+		</method>
+		<method name="process">
+			<return type="void" />
+			<param index="0" name="delta" type="float" />
+			<description>
+				Processes one frame of texture streaming. This evaluates all tracked textures, determines desired quality levels based on reported distances, handles VRAM budget enforcement, and issues texture loads/unloads.
+				This should be called once per frame, typically from a scene's [code]_process[/code] callback or an autoload.
+			</description>
+		</method>
+		<method name="register_texture">
+			<return type="void" />
+			<param index="0" name="texture_rid" type="RID" />
+			<param index="1" name="source_path" type="String" />
+			<param index="2" name="width" type="int" />
+			<param index="3" name="height" type="int" />
+			<param index="4" name="mipmaps" type="int" />
+			<param index="5" name="format" type="int" enum="Image.Format" />
+			<description>
+				Registers a texture for streaming management. The [param texture_rid] is the RID from [RenderingServer]. The [param source_path] is the file path used to reload the texture at different quality levels. [param width], [param height], [param mipmaps], and [param format] describe the full-resolution texture properties.
+			</description>
+		</method>
+		<method name="report_texture_distance">
+			<return type="void" />
+			<param index="0" name="texture_rid" type="RID" />
+			<param index="1" name="distance" type="float" />
+			<description>
+				Reports the distance from the camera to a texture this frame. Call this for each visible texture every frame. The manager uses the minimum reported distance to determine the desired quality level. If a texture is not reported for several frames, it will be evicted to the lowest quality.
+			</description>
+		</method>
+		<method name="unregister_texture">
+			<return type="void" />
+			<param index="0" name="texture_rid" type="RID" />
+			<description>
+				Removes a texture from streaming management. The texture's VRAM usage is subtracted from the tracked total. The texture itself is not freed.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="distance_bias" type="float" setter="set_distance_bias" getter="get_distance_bias" default="1.0">
+			Multiplier applied to all reported distances before quality evaluation. Values greater than 1.0 make the system treat textures as further away (more aggressive downscaling). Values less than 1.0 keep textures at higher quality for longer.
+		</member>
+		<member name="distance_full" type="float" setter="set_distance_full" getter="get_distance_full" default="10.0">
+			Maximum distance at which textures are kept at full resolution.
+		</member>
+		<member name="distance_high" type="float" setter="set_distance_high" getter="get_distance_high" default="30.0">
+			Maximum distance for high quality (1 mip level skipped).
+		</member>
+		<member name="distance_low" type="float" setter="set_distance_low" getter="get_distance_low" default="120.0">
+			Maximum distance for low quality (3 mip levels skipped). Beyond this distance, textures are at their lowest quality.
+		</member>
+		<member name="distance_medium" type="float" setter="set_distance_medium" getter="get_distance_medium" default="60.0">
+			Maximum distance for medium quality (2 mip levels skipped).
+		</member>
+		<member name="enabled" type="bool" setter="set_enabled" getter="is_enabled" default="true">
+			If [code]true[/code], the streaming manager actively adjusts texture quality. If [code]false[/code], all textures remain at their current quality level.
+		</member>
+		<member name="max_loads_per_frame" type="int" setter="set_max_loads_per_frame" getter="get_max_loads_per_frame" default="2">
+			Maximum number of texture quality changes (loads or unloads) per frame. Higher values reduce streaming latency but may cause frame hitches. Lower values spread the work across more frames.
+		</member>
+		<member name="vram_budget_mb" type="int" setter="set_vram_budget_mb" getter="get_vram_budget_mb" default="512">
+			The VRAM budget in megabytes. When estimated VRAM usage exceeds this budget, the manager prioritizes downgrading distant textures to stay within budget.
+		</member>
+	</members>
+	<constants>
+		<constant name="QUALITY_LOWEST" value="0" enum="StreamingQuality">
+			Smallest mip level only. Used for textures that are very far away or not currently visible.
+		</constant>
+		<constant name="QUALITY_LOW" value="1" enum="StreamingQuality">
+			Low quality, 3 mip levels skipped from full resolution.
+		</constant>
+		<constant name="QUALITY_MEDIUM" value="2" enum="StreamingQuality">
+			Medium quality, 2 mip levels skipped from full resolution.
+		</constant>
+		<constant name="QUALITY_HIGH" value="3" enum="StreamingQuality">
+			High quality, 1 mip level skipped from full resolution.
+		</constant>
+		<constant name="QUALITY_FULL" value="4" enum="StreamingQuality">
+			Full resolution, all mip levels loaded.
+		</constant>
+	</constants>
+</class>

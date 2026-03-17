@@ -31,8 +31,10 @@ class ModIOMainScreen : public Control {
 	// Create UGC UI.
 	VBoxContainer *create_section = nullptr;
 	LineEdit *ugc_id_input = nullptr;
+	LineEdit *ugc_summary_input = nullptr;
 	OptionButton *ugc_type_dropdown = nullptr;
 	RichTextLabel *create_status = nullptr;
+	HTTPRequest *create_http = nullptr;
 
 	// Auth UI.
 	VBoxContainer *auth_section = nullptr;
@@ -60,6 +62,8 @@ class ModIOMainScreen : public Control {
 	void _build_upload_section(VBoxContainer *p_root);
 
 	void _on_create_ugc();
+	void _on_create_mod_response(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body);
+	int pending_ugc_type = 0;
 	void _on_send_code();
 	void _on_verify_code();
 	void _update_locked_state();

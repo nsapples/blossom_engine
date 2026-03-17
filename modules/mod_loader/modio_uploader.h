@@ -27,11 +27,12 @@ public:
 		STATUS_ERROR,
 	};
 
-private:
-	static ModIOUploader *singleton;
-
+public:
 	static constexpr int BLOSSOM_GAME_ID = 11342;
 	static constexpr const char *BLOSSOM_API_KEY = "c98fd7bfca1466522e70876eaff61751";
+
+private:
+	static ModIOUploader *singleton;
 	String api_base_url = "https://api.mod.io/v1";
 	String access_token;
 	UploadStatus status = STATUS_IDLE;

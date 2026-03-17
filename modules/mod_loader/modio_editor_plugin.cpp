@@ -15,6 +15,7 @@
 #include "core/config/project_settings.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
+#include "core/io/json.h"
 #include "core/object/callable_mp.h"
 #include "editor/editor_interface.h"
 #include "editor/editor_node.h"
@@ -100,20 +101,35 @@ void ModIOMainScreen::_build_create_section(VBoxContainer *p_root) {
 
 	create_section->add_child(type_row);
 
-	// UGC ID.
-	HBoxContainer *id_row = memnew(HBoxContainer);
-	id_row->add_theme_constant_override("separation", 6);
+	// UGC Name.
+	HBoxContainer *name_row = memnew(HBoxContainer);
+	name_row->add_theme_constant_override("separation", 6);
 
-	Label *id_label = memnew(Label);
-	id_label->set_text("UGC ID:");
-	id_row->add_child(id_label);
+	Label *name_label = memnew(Label);
+	name_label->set_text("Name:");
+	name_row->add_child(name_label);
 
 	ugc_id_input = memnew(LineEdit);
-	ugc_id_input->set_placeholder("my_custom_level");
+	ugc_id_input->set_placeholder("My Awesome Mod");
 	ugc_id_input->set_h_size_flags(SIZE_EXPAND_FILL);
-	id_row->add_child(ugc_id_input);
+	name_row->add_child(ugc_id_input);
 
-	create_section->add_child(id_row);
+	create_section->add_child(name_row);
+
+	// UGC Summary.
+	HBoxContainer *summary_row = memnew(HBoxContainer);
+	summary_row->add_theme_constant_override("separation", 6);
+
+	Label *summary_label = memnew(Label);
+	summary_label->set_text("Summary:");
+	summary_row->add_child(summary_label);
+
+	ugc_summary_input = memnew(LineEdit);
+	ugc_summary_input->set_placeholder("A short description of your mod");
+	ugc_summary_input->set_h_size_flags(SIZE_EXPAND_FILL);
+	summary_row->add_child(ugc_summary_input);
+
+	create_section->add_child(summary_row);
 
 	// Create button.
 	Button *create_btn = memnew(Button);
@@ -132,39 +148,94 @@ void ModIOMainScreen::_build_create_section(VBoxContainer *p_root) {
 }
 
 void ModIOMainScreen::_on_create_ugc() {
-	String ugc_id = ugc_id_input->get_text().strip_edges();
-	if (ugc_id.is_empty()) {
-		create_status->set_text("[color=red]Enter a UGC ID.[/color]");
+	String mod_name = ugc_id_input->get_text().strip_edges();
+	String mod_summary = ugc_summary_input->get_text().strip_edges();
+
+	if (mod_name.is_empty()) {
+		create_status->set_text("[color=red]Enter a name for your mod.[/color]");
+		return;
+	}
+	if (mod_summary.is_empty()) {
+		create_status->set_text("[color=red]Enter a summary for your mod.[/color]");
 		return;
 	}
 
-	// Sanitize ID: lowercase, underscores only.
-	ugc_id = ugc_id.to_lower().replace(" ", "_").replace("-", "_");
+	ModIOUploader *uploader = ModIOUploader::get_singleton();
+	if (!uploader || !uploader->is_authenticated()) {
+		create_status->set_text("[color=red]Log in first.[/color]");
+		return;
+	}
 
-	int type_idx = ugc_type_dropdown->get_selected();
+	pending_ugc_type = ugc_type_dropdown->get_selected();
+
+	// Create the mod on mod.io to get the ID.
+	create_status->set_text("[color=cyan]Creating mod on mod.io...[/color]");
+
+	if (!create_http) {
+		create_http = memnew(HTTPRequest);
+		create_http->set_timeout(30.0);
+		add_child(create_http);
+		create_http->connect("request_completed", callable_mp(this, &ModIOMainScreen::_on_create_mod_response));
+	}
+
+	String url = vformat("https://api.mod.io/v1/games/%d/mods", ModIOUploader::BLOSSOM_GAME_ID);
+	PackedStringArray headers;
+	headers.push_back("Authorization: Bearer " + uploader->get_access_token());
+	headers.push_back("Content-Type: application/x-www-form-urlencoded");
+
+	// Add type as a tag.
+	String type_tag;
+	switch (pending_ugc_type) {
+		case 0: type_tag = "level"; break;
+		case 1: type_tag = "gamemode"; break;
+		case 2: type_tag = "avatar"; break;
+		case 3: type_tag = "gun"; break;
+		default: type_tag = "misc"; break;
+	}
+
+	String body = vformat("name=%s&summary=%s&visible=0&tags[]=%s",
+			mod_name.uri_encode(), mod_summary.uri_encode(), type_tag);
+
+	create_http->request(url, headers, HTTPClient::METHOD_POST, body);
+}
+
+void ModIOMainScreen::_on_create_mod_response(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body) {
+	String body_str;
+	if (!p_body.is_empty()) {
+		const uint8_t *r = p_body.ptr();
+		body_str = String::utf8((const char *)r, p_body.size());
+	}
+
+	if (p_response_code != 201 && p_response_code != 200) {
+		create_status->set_text(vformat("[color=red]Failed to create mod on mod.io (%d): %s[/color]", p_response_code, body_str));
+		return;
+	}
+
+	Variant parsed = JSON::parse_string(body_str);
+	if (parsed.get_type() != Variant::DICTIONARY) {
+		create_status->set_text("[color=red]Invalid response from mod.io.[/color]");
+		return;
+	}
+
+	Dictionary data = parsed;
+	int mod_id = data.get("id", 0);
+	String mod_name = data.get("name", "");
+
+	if (mod_id == 0) {
+		create_status->set_text("[color=red]No mod ID returned from mod.io.[/color]");
+		return;
+	}
+
+	String ugc_id = String::num_int64(mod_id);
+
 	String type_name;
 	String type_folder;
-	switch (type_idx) {
-		case 0:
-			type_name = "Level";
-			type_folder = "level";
-			break;
-		case 1:
-			type_name = "Gamemode";
-			type_folder = "gamemode";
-			break;
-		case 2:
-			type_name = "Avatar";
-			type_folder = "avatar";
-			break;
-		case 3:
-			type_name = "Gun";
-			type_folder = "gun";
-			break;
-		default:
-			type_name = "Misc";
-			type_folder = "misc";
-			break;
+	switch (pending_ugc_type) {
+		case 0: type_name = "Level"; type_folder = "level"; break;
+		case 1: type_name = "Gamemode"; type_folder = "gamemode"; break;
+		case 2: type_name = "Avatar"; type_folder = "avatar"; break;
+		case 3: type_name = "Gun"; type_folder = "gun"; break;
+		default: type_name = "Misc"; type_folder = "misc"; break;
 	}
 
 	String folder_name = "UGC_" + ugc_id;
@@ -182,10 +253,10 @@ void ModIOMainScreen::_on_create_ugc() {
 	da->make_dir_recursive("ugc/" + type_folder + "/" + folder_name + "/scripts");
 	da->make_dir_recursive("ugc/" + type_folder + "/" + folder_name + "/assets");
 
-	// Generate mod.cfg.
+	// Generate mod.cfg with mod.io ID.
 	String cfg_content = vformat(
-			"[mod]\nname = \"%s\"\nversion = \"1.0.0\"\nauthor = \"\"\ndescription = \"\"\ntype = \"%s\"\n\n[dependencies]\nrequired = \n",
-			ugc_id, type_folder);
+			"[mod]\nname = \"%s\"\nversion = \"1.0.0\"\nauthor = \"\"\ndescription = \"\"\ntype = \"%s\"\nmodio_id = %d\n\n[dependencies]\nrequired = \n",
+			mod_name, type_folder, mod_id);
 
 	String cfg_path = abs_path.path_join("mod.cfg");
 	Ref<FileAccess> f = FileAccess::open(cfg_path, FileAccess::WRITE);
@@ -195,8 +266,8 @@ void ModIOMainScreen::_on_create_ugc() {
 
 	// Generate a starter script.
 	String script_content = vformat(
-			"extends Node\n\n## Entry point for UGC: %s (%s)\n## This script runs when the mod is loaded.\n\nfunc _ready() -> void:\n\tprint(\"[UGC] %s loaded.\")\n",
-			ugc_id, type_name, ugc_id);
+			"extends Node\n\n## Entry point for UGC: %s (%s)\n## mod.io ID: %d\n\nfunc _ready() -> void:\n\tprint(\"[UGC] %s loaded.\")\n",
+			mod_name, type_name, mod_id, mod_name);
 
 	String script_path = abs_path.path_join("scripts/main.gd");
 	Ref<FileAccess> sf = FileAccess::open(script_path, FileAccess::WRITE);
@@ -206,10 +277,10 @@ void ModIOMainScreen::_on_create_ugc() {
 
 	// Auto-fill upload fields.
 	mod_path_input->set_text(base_path);
-	mod_name_input->set_text(ugc_id);
+	mod_name_input->set_text(mod_name);
 
-	create_status->set_text(vformat("[color=green]Created UGC project:[/color] %s\n[color=cyan]Type:[/color] %s\n[color=cyan]Path:[/color] %s\n[color=cyan]Folders:[/color] scenes/, scripts/, assets/",
-			folder_name, type_name, base_path));
+	create_status->set_text(vformat("[color=green]Created UGC project:[/color] %s\n[color=cyan]mod.io ID:[/color] %d\n[color=cyan]Type:[/color] %s\n[color=cyan]Path:[/color] %s",
+			folder_name, mod_id, type_name, base_path));
 
 	// Refresh the filesystem dock.
 	EditorInterface::get_singleton()->get_resource_filesystem()->scan();

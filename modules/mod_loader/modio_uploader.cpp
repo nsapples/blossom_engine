@@ -30,6 +30,24 @@ ModIOUploader *ModIOUploader::get_singleton() {
 //  Auth: email-based
 // ===========================================================
 
+void ModIOUploader::_save_token() {
+	String path = OS::get_singleton()->get_user_data_dir().path_join(".modio_token");
+	Ref<FileAccess> f = FileAccess::open(path, FileAccess::WRITE);
+	if (f.is_valid()) {
+		f->store_string(access_token);
+	}
+}
+
+void ModIOUploader::_load_token() {
+	String path = OS::get_singleton()->get_user_data_dir().path_join(".modio_token");
+	if (FileAccess::exists(path)) {
+		Ref<FileAccess> f = FileAccess::open(path, FileAccess::READ);
+		if (f.is_valid()) {
+			access_token = f->get_as_text().strip_edges();
+		}
+	}
+}
+
 bool ModIOUploader::has_api_key() const {
 	return true; // Hardcoded.
 }
@@ -229,6 +247,7 @@ void ModIOUploader::_on_email_exchange_complete(int p_response_code, const Strin
 		if (parsed.get_type() == Variant::DICTIONARY) {
 			Dictionary data = parsed;
 			access_token = data.get("access_token", "");
+			_save_token();
 			status = STATUS_IDLE;
 			status_message = "Logged in successfully.";
 			emit_signal("authenticated");
@@ -393,6 +412,7 @@ void ModIOUploader::_bind_methods() {
 
 ModIOUploader::ModIOUploader() {
 	singleton = this;
+	_load_token();
 }
 
 ModIOUploader::~ModIOUploader() {

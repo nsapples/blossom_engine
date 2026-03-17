@@ -57,6 +57,9 @@ private:
 	RequestType current_request = REQ_NONE;
 	int pending_mod_id = 0;
 
+	void _save_token();
+	void _load_token();
+
 	void _http_completed(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body);
 	void _on_email_request_complete(int p_response_code, const String &p_body);
 	void _on_email_exchange_complete(int p_response_code, const String &p_body);

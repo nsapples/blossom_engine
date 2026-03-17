@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="SpatialAudioPlayer3D" inherits="AudioStreamPlayer3D" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+	<brief_description>
+		An advanced 3D audio player with automatic occlusion, reverb, air absorption, and water muffling.
+	</brief_description>
+	<description>
+		[SpatialAudioPlayer3D] is a drop-in replacement for [AudioStreamPlayer3D] that adds physically-inspired spatial audio effects. It integrates with Blossom Engine's physics systems automatically.
+		[b]Occlusion:[/b] Raycasts from the emitter to the listener detect walls in between. Each wall reduces volume and applies a lowpass filter. The amount of sound blocking is determined by the [PhysicsMaterial]'s [member PhysicsMaterial.penetration_resistance] — high resistance blocks more sound.
+		[b]Reverb:[/b] Fibonacci-sphere distributed raycasts estimate the size of the surrounding room. Enclosed spaces produce more reverb, open areas produce less. The [PhysicsMaterial]'s [member PhysicsMaterial.reflection_factor] on surfaces controls how reflective they are acoustically.
+		[b]Air absorption:[/b] High frequencies are naturally absorbed over distance. Sounds far away become duller, simulating real atmospheric absorption.
+		[b]Water muffling:[/b] When the emitter or listener is inside a water volume (an [Area3D] with buoyancy properties), sound is muffled with a lowpass filter and volume reduction, simulating underwater audio.
+		Each [SpatialAudioPlayer3D] creates its own dedicated audio bus with a lowpass filter and reverb effect. The bus is automatically cleaned up when the node exits the tree.
+		[codeblock]
+		# Use it like a normal AudioStreamPlayer3D:
+		var player = SpatialAudioPlayer3D.new()
+		player.stream = load("res://sounds/gunshot.wav")
+		add_child(player)
+		player.play()
+		# Occlusion, reverb, and water muffling happen automatically.
+		[/codeblock]
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_current_room_size" qualifiers="const">
+			<return type="float" />
+			<description>
+				Returns the estimated room size as a normalized value between 0.0 (tiny enclosed space) and 1.0 (open area). Derived from the average distance of reverb raycasts.
+			</description>
+		</method>
+		<method name="get_current_wall_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the number of walls currently detected between the emitter and the listener. Updated every few physics frames based on [member occlusion_max_rays].
+			</description>
+		</method>
+		<method name="is_emitter_submerged" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the emitter (this node) is currently inside a water volume.
+			</description>
+		</method>
+		<method name="is_listener_submerged" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the listener (the active [Camera3D]) is currently inside a water volume.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="occlusion_enabled" type="bool" setter="set_occlusion_enabled" getter="is_occlusion_enabled" default="true">
+			If [code]true[/code], the player raycasts toward the listener each update to detect walls. Walls apply a lowpass filter and volume reduction based on the hit surface's [PhysicsMaterial].
+		</member>
+		<member name="occlusion_max_rays" type="int" setter="set_max_occlusion_rays" getter="get_max_occlusion_rays" default="3">
+			Maximum number of walls the occlusion system can detect between emitter and listener. Each wall is a separate raycast step. Higher values catch more layered walls but cost more CPU.
+		</member>
+		<member name="occlusion_lowpass_min" type="float" setter="set_occlusion_lowpass_min" getter="get_occlusion_lowpass_min" default="800.0">
+			The lowpass filter cutoff frequency (in Hz) when sound is fully occluded. Lower values produce more aggressive muffling. The filter smoothly interpolates between 20500 Hz (fully open) and this value.
+		</member>
+		<member name="occlusion_volume_reduction" type="float" setter="set_occlusion_volume_reduction" getter="get_occlusion_volume_reduction" default="12.0">
+			Volume reduction in dB applied per occluding wall. A wall with low [member PhysicsMaterial.penetration_resistance] reduces volume less.
+		</member>
+		<member name="occlusion_mask" type="int" setter="set_occlusion_mask" getter="get_occlusion_mask" default="1">
+			The physics collision mask used for occlusion and reverb raycasts. Only objects on matching layers are considered as occluders.
+		</member>
+		<member name="reverb_enabled" type="bool" setter="set_reverb_enabled" getter="is_reverb_enabled" default="true">
+			If [code]true[/code], the player estimates room size using Fibonacci-sphere raycasts and applies reverb automatically. Room size, wetness, and damping are derived from surrounding geometry.
+		</member>
+		<member name="reverb_ray_count" type="int" setter="set_reverb_ray_count" getter="get_reverb_ray_count" default="10">
+			Number of evenly-distributed raycasts used to estimate room size. More rays improve accuracy at higher CPU cost.
+		</member>
+		<member name="reverb_max_distance" type="float" setter="set_max_reverb_distance" getter="get_max_reverb_distance" default="50.0">
+			Maximum distance for reverb raycasts. Rays that don't hit anything within this distance are treated as open space.
+		</member>
+		<member name="reverb_max_wetness" type="float" setter="set_max_reverb_wetness" getter="get_max_reverb_wetness" default="0.5">
+			Maximum reverb wetness. Acts as a ceiling on the wet signal regardless of how enclosed the space is.
+		</member>
+		<member name="air_absorption_enabled" type="bool" setter="set_air_absorption_enabled" getter="is_air_absorption_enabled" default="true">
+			If [code]true[/code], high frequencies are progressively filtered out as distance increases, simulating atmospheric absorption.
+		</member>
+		<member name="water_muffle_enabled" type="bool" setter="set_water_muffle_enabled" getter="is_water_muffle_enabled" default="true">
+			If [code]true[/code], sound is muffled when the emitter or listener is inside a water volume ([Area3D] with buoyancy properties). Applies both a lowpass filter and volume reduction.
+		</member>
+		<member name="water_lowpass_cutoff" type="float" setter="set_water_lowpass_cutoff" getter="get_water_lowpass_cutoff" default="400.0">
+			Lowpass filter cutoff frequency (in Hz) applied when underwater. Lower values produce heavier muffling.
+		</member>
+	</members>
+	<constants>
+		<constant name="ATTENUATION_LINEAR" value="0" enum="AttenuationMode">
+			Volume decreases at a constant rate with distance.
+		</constant>
+		<constant name="ATTENUATION_LOGARITHMIC" value="1" enum="AttenuationMode">
+			Greater volume changes at close distances, lesser at far distances.
+		</constant>
+		<constant name="ATTENUATION_INVERSE" value="2" enum="AttenuationMode">
+			Inverse distance falloff. Only audible very close.
+		</constant>
+		<constant name="ATTENUATION_NATURAL" value="3" enum="AttenuationMode">
+			Middle-ground between logarithmic and inverse. Closest to real-world sound propagation.
+		</constant>
+	</constants>
+</class>

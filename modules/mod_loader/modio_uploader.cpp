@@ -292,7 +292,10 @@ void ModIOUploader::_http_completed(int p_result, int p_response_code, const Pac
 
 	print_line(vformat("[ModIO] HTTP response (req=%d, code=%d): %s", (int)current_request, p_response_code, body_str));
 
-	switch (current_request) {
+	RequestType req = current_request;
+	current_request = REQ_NONE;
+
+	switch (req) {
 		case REQ_EMAIL_REQUEST:
 			_on_email_request_complete(p_response_code, body_str);
 			break;
@@ -306,9 +309,9 @@ void ModIOUploader::_http_completed(int p_result, int p_response_code, const Pac
 			_on_set_visible_complete(p_response_code, body_str);
 			break;
 		default:
+			print_line(vformat("[ModIO] WARNING: Unhandled response for request type %d", (int)req));
 			break;
 	}
-	current_request = REQ_NONE;
 }
 
 void ModIOUploader::_on_email_request_complete(int p_response_code, const String &p_body) {
@@ -362,6 +365,7 @@ void ModIOUploader::_on_upload_file_complete(int p_response_code, const String &
 		vis_headers.push_back("Authorization: Bearer " + access_token);
 		vis_headers.push_back("Content-Type: application/x-www-form-urlencoded");
 
+		print_line(vformat("[ModIO] Setting visible=1: PUT %s", url));
 		http->request(url, vis_headers, HTTPClient::METHOD_PUT, "visible=1");
 		return;
 	} else {

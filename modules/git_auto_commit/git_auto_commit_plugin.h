@@ -24,6 +24,10 @@
 #include "scene/gui/text_edit.h"
 #include "scene/main/timer.h"
 
+class AcceptDialog;
+class CheckBox;
+class MarginContainer;
+
 // ---- Git utility ----
 
 class GitUtils : public RefCounted {
@@ -128,6 +132,17 @@ class GitMainScreen : public Control {
 	void _on_gitignore_add();
 	void _on_gitignore_save();
 
+	// Dialog callback helpers.
+	AcceptDialog *tag_dialog = nullptr;
+	LineEdit *tag_name_input = nullptr;
+	TextEdit *tag_msg_input = nullptr;
+	CheckBox *tag_push_check = nullptr;
+	void _on_tag_confirmed();
+
+	AcceptDialog *branch_dialog = nullptr;
+	LineEdit *branch_name_input = nullptr;
+	void _on_new_branch_confirmed();
+
 	void _refresh_status();
 	void _refresh_branches();
 	void _refresh_history();
@@ -162,7 +177,7 @@ protected:
 public:
 	virtual String get_plugin_name() const override { return "Git"; }
 	virtual bool has_main_screen() const override { return true; }
-	virtual Ref<Texture2D> get_plugin_icon() const override;
+	virtual const Ref<Texture2D> get_plugin_icon() const override;
 	virtual void make_visible(bool p_visible) override;
 
 	GitAutoCommitPlugin();

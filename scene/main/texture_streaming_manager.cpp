@@ -9,9 +9,10 @@
 #include "texture_streaming_manager.h"
 
 #include "core/io/image.h"
+#include "core/object/class_db.h"
 #include "core/io/resource_loader.h"
 #include "scene/resources/compressed_texture.h"
-#include "servers/rendering_server.h"
+#include "servers/rendering/rendering_server.h"
 
 TextureStreamingManager *TextureStreamingManager::singleton = nullptr;
 
@@ -124,7 +125,7 @@ void TextureStreamingManager::_update_desired_qualities() {
 	for (KeyValue<RID, StreamedTexture> &kv : tracked_textures) {
 		StreamedTexture &st = kv.value;
 
-		if (st.min_distance == Math_INF) {
+		if (st.min_distance == INFINITY) {
 			// Not visible this frame — mark for potential eviction but don't change quality yet.
 			continue;
 		}
@@ -145,7 +146,7 @@ void TextureStreamingManager::_update_desired_qualities() {
 		}
 
 		// Reset distance for next frame.
-		st.min_distance = Math_INF;
+		st.min_distance = INFINITY;
 	}
 }
 

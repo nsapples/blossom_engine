@@ -11,13 +11,19 @@
 #include "git_auto_commit_plugin.h"
 
 #include "core/config/project_settings.h"
+#include "core/io/file_access.h"
+#include "core/object/callable_mp.h"
 #include "core/os/os.h"
 #include "editor/editor_interface.h"
 #include "editor/editor_string_names.h"
+#include "editor/file_system/editor_file_system.h"
 #include "editor/gui/editor_file_dialog.h"
 #include "editor/themes/editor_scale.h"
+#include "scene/animation/tween.h"
 #include "scene/gui/check_box.h"
 #include "scene/gui/dialogs.h"
+#include "scene/gui/margin_container.h"
+#include "scene/resources/style_box_flat.h"
 
 // ===========================================================
 //  GitUtils
@@ -481,7 +487,7 @@ GitToast::GitToast() {
 	style->set_bg_color(Color(0.15, 0.15, 0.2, 0.9));
 	style->set_corner_radius_all(6);
 	style->set_content_margin_all(10);
-	add_theme_stylebox_override("panel", style);
+	add_theme_style_override("panel", style);
 
 	label = memnew(Label);
 	label->set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER);
@@ -495,10 +501,11 @@ void GitToast::show_message(const String &p_msg) {
 		tween->kill();
 	}
 	set_modulate(Color(1, 1, 1, 0));
-	tween = create_tween();
-	tween->tween_property(this, "modulate:a", 1.0, 0.2);
-	tween->tween_interval(2.5);
-	tween->tween_property(this, "modulate:a", 0.0, 0.5);
+	Ref<Tween> t = create_tween();
+	t->tween_property(this, NodePath("modulate:a"), 1.0, 0.2);
+	t->tween_interval(2.5);
+	t->tween_property(this, NodePath("modulate:a"), 0.0, 0.5);
+	tween = t;
 }
 
 // ===========================================================
@@ -542,7 +549,7 @@ void GitMainScreen::_build_status_panel(VBoxContainer *p_root) {
 	style->set_bg_color(Color(0.12, 0.12, 0.16, 1.0));
 	style->set_corner_radius_all(4);
 	style->set_content_margin_all(14);
-	panel->add_theme_stylebox_override("panel", style);
+	panel->add_theme_style_override("panel", style);
 
 	VBoxContainer *vbox = memnew(VBoxContainer);
 	vbox->add_theme_constant_override("separation", 4);
@@ -828,7 +835,7 @@ void GitMainScreen::_refresh_history() {
 
 void GitMainScreen::_refresh_gitignore() {
 	String path = git->get_project_path().path_join(".gitignore");
-	if (FileAccess::file_exists(path)) {
+	if (FileAccess::exists(path)) {
 		Ref<FileAccess> f = FileAccess::open(path, FileAccess::READ);
 		if (f.is_valid()) {
 			gitignore_contents->set_text(f->get_as_text());
@@ -865,75 +872,64 @@ void GitMainScreen::_on_undo() {
 }
 
 void GitMainScreen::_on_tag() {
-	// Simple tag creation via dialog.
-	AcceptDialog *dialog = memnew(AcceptDialog);
-	dialog->set_title("Create Tag");
+	tag_dialog = memnew(AcceptDialog);
+	tag_dialog->set_title("Create Tag");
 
 	VBoxContainer *vbox = memnew(VBoxContainer);
-	dialog->add_child(vbox);
+	tag_dialog->add_child(vbox);
 
 	Label *name_label = memnew(Label);
 	name_label->set_text("Tag name:");
 	vbox->add_child(name_label);
 
-	LineEdit *name_input = memnew(LineEdit);
-	name_input->set_placeholder("e.g. v0.1, playable-demo, alpha");
-	name_input->set_custom_minimum_size(Size2(350, 0));
-	vbox->add_child(name_input);
+	tag_name_input = memnew(LineEdit);
+	tag_name_input->set_placeholder("e.g. v0.1, playable-demo, alpha");
+	tag_name_input->set_custom_minimum_size(Size2(350, 0));
+	vbox->add_child(tag_name_input);
 
 	Label *msg_label = memnew(Label);
 	msg_label->set_text("Description (optional):");
 	vbox->add_child(msg_label);
 
-	TextEdit *msg_input = memnew(TextEdit);
-	msg_input->set_placeholder("What's in this release?");
-	msg_input->set_custom_minimum_size(Size2(350, 80));
-	vbox->add_child(msg_input);
+	tag_msg_input = memnew(TextEdit);
+	tag_msg_input->set_placeholder("What's in this release?");
+	tag_msg_input->set_custom_minimum_size(Size2(350, 80));
+	vbox->add_child(tag_msg_input);
 
-	CheckBox *push_check = memnew(CheckBox);
-	push_check->set_text("Push tag to remote");
-	push_check->set_pressed(true);
-	vbox->add_child(push_check);
+	tag_push_check = memnew(CheckBox);
+	tag_push_check->set_text("Push tag to remote");
+	tag_push_check->set_pressed(true);
+	vbox->add_child(tag_push_check);
 
-	dialog->connect("confirmed", callable_mp(this, &GitMainScreen::refresh_all));
+	tag_dialog->connect("confirmed", callable_mp(this, &GitMainScreen::_on_tag_confirmed));
 
-	// Store refs for the lambda via a simple approach: connect with binds.
-	// For simplicity, we'll handle it in the confirmed signal with captured variables.
-	Ref<GitUtils> git_ref = git;
-	GitToast *toast_ref = toast;
-	dialog->connect("confirmed", Callable([name_input, msg_input, push_check, git_ref, toast_ref, dialog]() {
-		String tag_name = name_input->get_text().strip_edges();
-		if (tag_name.is_empty()) {
-			return;
-		}
-		Dictionary r = git_ref->create_tag(tag_name, msg_input->get_text().strip_edges());
-		if (int(r["exit_code"]) != 0) {
-			if (toast_ref) {
-				toast_ref->show_message("Failed to create tag");
-			}
-			dialog->queue_free();
-			return;
-		}
-		if (push_check->is_pressed()) {
-			Dictionary pr = git_ref->push_tag(tag_name);
-			if (toast_ref) {
-				if (int(pr["exit_code"]) == 0) {
-					toast_ref->show_message("Tagged & pushed: " + tag_name);
-				} else {
-					toast_ref->show_message("Tag created but push failed");
-				}
-			}
+	EditorInterface::get_singleton()->get_base_control()->add_child(tag_dialog);
+	tag_dialog->popup_centered();
+}
+
+void GitMainScreen::_on_tag_confirmed() {
+	String tname = tag_name_input->get_text().strip_edges();
+	if (tname.is_empty()) {
+		return;
+	}
+	Dictionary r = git->create_tag(tname, tag_msg_input->get_text().strip_edges());
+	if (int(r["exit_code"]) != 0) {
+		show_toast("Failed to create tag");
+	} else if (tag_push_check->is_pressed()) {
+		Dictionary pr = git->push_tag(tname);
+		if (int(pr["exit_code"]) == 0) {
+			show_toast("Tagged & pushed: " + tname);
 		} else {
-			if (toast_ref) {
-				toast_ref->show_message("Tagged: " + tag_name);
-			}
+			show_toast("Tag created but push failed");
 		}
-		dialog->queue_free();
-	}));
-	dialog->connect("canceled", Callable([dialog]() { dialog->queue_free(); }));
-
-	EditorInterface::get_singleton()->get_base_control()->add_child(dialog);
-	dialog->popup_centered();
+	} else {
+		show_toast("Tagged: " + tname);
+	}
+	refresh_all();
+	if (tag_dialog) {
+		tag_dialog->queue_free();
+		tag_dialog = nullptr;
+	}
 }
 
 void GitMainScreen::_on_branch_selected(int p_index) {
@@ -949,34 +945,36 @@ void GitMainScreen::_on_branch_selected(int p_index) {
 }
 
 void GitMainScreen::_on_new_branch() {
-	AcceptDialog *dialog = memnew(AcceptDialog);
-	dialog->set_title("New Branch");
+	branch_dialog = memnew(AcceptDialog);
+	branch_dialog->set_title("New Branch");
 
-	LineEdit *input = memnew(LineEdit);
-	input->set_placeholder("feature/my-branch");
-	input->set_custom_minimum_size(Size2(300, 0));
-	dialog->add_child(input);
+	branch_name_input = memnew(LineEdit);
+	branch_name_input->set_placeholder("feature/my-branch");
+	branch_name_input->set_custom_minimum_size(Size2(300, 0));
+	branch_dialog->add_child(branch_name_input);
 
-	Ref<GitUtils> git_ref = git;
-	GitMainScreen *self = this;
-	dialog->connect("confirmed", Callable([input, git_ref, self, dialog]() {
-		String branch_name = input->get_text().strip_edges();
-		if (branch_name.is_empty()) {
-			return;
-		}
-		Dictionary r = git_ref->create_branch(branch_name);
-		if (int(r["exit_code"]) == 0) {
-			self->show_toast("Created branch: " + branch_name);
-		} else {
-			self->show_toast("Failed to create branch");
-		}
-		self->refresh_all();
-		dialog->queue_free();
-	}));
-	dialog->connect("canceled", Callable([dialog]() { dialog->queue_free(); }));
+	branch_dialog->connect("confirmed", callable_mp(this, &GitMainScreen::_on_new_branch_confirmed));
 
-	EditorInterface::get_singleton()->get_base_control()->add_child(dialog);
-	dialog->popup_centered();
+	EditorInterface::get_singleton()->get_base_control()->add_child(branch_dialog);
+	branch_dialog->popup_centered();
+}
+
+void GitMainScreen::_on_new_branch_confirmed() {
+	String bname = branch_name_input->get_text().strip_edges();
+	if (bname.is_empty()) {
+		return;
+	}
+	Dictionary r = git->create_branch(bname);
+	if (int(r["exit_code"]) == 0) {
+		show_toast("Created branch: " + bname);
+	} else {
+		show_toast("Failed to create branch");
+	}
+	refresh_all();
+	if (branch_dialog) {
+		branch_dialog->queue_free();
+		branch_dialog = nullptr;
+	}
 }
 
 void GitMainScreen::_on_show_diff(bool p_staged) {
@@ -991,7 +989,7 @@ void GitMainScreen::_on_gitignore_add() {
 	}
 	String path = git->get_project_path().path_join(".gitignore");
 	String existing;
-	if (FileAccess::file_exists(path)) {
+	if (FileAccess::exists(path)) {
 		Ref<FileAccess> f = FileAccess::open(path, FileAccess::READ);
 		if (f.is_valid()) {
 			existing = f->get_as_text();
@@ -1090,7 +1088,7 @@ void GitAutoCommitPlugin::_notification(int p_what) {
 	}
 }
 
-Ref<Texture2D> GitAutoCommitPlugin::get_plugin_icon() const {
+const Ref<Texture2D> GitAutoCommitPlugin::get_plugin_icon() const {
 	Ref<Theme> theme = EditorInterface::get_singleton()->get_editor_theme();
 	if (theme.is_valid() && theme->has_icon("VcsBranches", "EditorIcons")) {
 		return theme->get_icon("VcsBranches", "EditorIcons");

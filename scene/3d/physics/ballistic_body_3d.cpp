@@ -8,10 +8,12 @@
 
 #include "ballistic_body_3d.h"
 
+#include "core/object/class_db.h"
 #include "scene/3d/physics/physics_body_3d.h"
 #include "scene/3d/physics/static_body_3d.h"
+#include "scene/main/scene_tree.h"
 #include "scene/resources/physics_material.h"
-#include "servers/physics_server_3d.h"
+#include "servers/physics_3d/physics_server_3d.h"
 
 void BallisticBody3D::_perform_raycast(PhysicsDirectBodyState3D *p_state) {
 	if (ballistic_state != STATE_FLYING) {

@@ -41,7 +41,7 @@ private:
 
 		StreamingQuality current_quality = QUALITY_LOWEST;
 		StreamingQuality desired_quality = QUALITY_LOWEST;
-		real_t min_distance = Math_INF; // Closest distance to any camera this frame.
+		real_t min_distance = INFINITY; // Closest distance to any camera this frame.
 		bool loading = false;
 		uint64_t last_used_frame = 0;
 		uint64_t vram_usage = 0;

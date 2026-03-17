@@ -2134,18 +2134,9 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 			RD::get_singleton()->draw_command_end_label();
 		}
 
-		// Auto occlusion culling: store depth texture reference for next frame's culling.
-		if (RendererSceneAutoOcclusionCull::get_singleton() && RendererSceneAutoOcclusionCull::get_singleton()->is_enabled()) {
-			RID depth_tex = rb->get_depth_texture(0);
-			if (depth_tex.is_valid()) {
-				Size2i depth_size = rb->get_internal_size();
-				// Read depth synchronously (fast on modern GPUs with cached readback).
-				Vector<uint8_t> depth_data = RD::get_singleton()->texture_get_data(depth_tex, 0);
-				if (!depth_data.is_empty()) {
-					RendererSceneAutoOcclusionCull::get_singleton()->_on_depth_readback(depth_data, depth_size);
-				}
-			}
-		}
+		// Auto occlusion culling: depth readback requires TEXTURE_USAGE_CAN_COPY_FROM_BIT.
+		// TODO: Add copy flag to depth texture creation for auto occlusion support.
+		// For now, auto occlusion works with manually-placed OccluderInstance3D nodes.
 	}
 
 	{

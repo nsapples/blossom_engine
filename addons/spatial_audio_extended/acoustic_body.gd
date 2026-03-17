@@ -1,3 +1,4 @@
+
 @tool
 @icon("images/acoustic_body.svg")
 extends Node

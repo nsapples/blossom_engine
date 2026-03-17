@@ -1,3 +1,4 @@
+
 @tool
 @icon("images/spatial_reflection_navigation_agent_3d.svg")
 extends Node3D

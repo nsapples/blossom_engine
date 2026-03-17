@@ -1,3 +1,4 @@
+
 @tool
 @icon("images/spatial_audio_player_3d.svg")
 extends AudioStreamPlayer3D

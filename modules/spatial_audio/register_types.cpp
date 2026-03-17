@@ -1,15 +1,12 @@
 #include "register_types.h"
 
-#ifdef TOOLS_ENABLED
-#include "spatial_audio_deployer.h"
-#endif
+#include "core/object/class_db.h"
+#include "spatial_audio_player_3d.h"
 
 void initialize_spatial_audio_module(ModuleInitializationLevel p_level) {
-#ifdef TOOLS_ENABLED
-	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
-		SpatialAudioDeployer::deploy_if_needed();
+	if (p_level == MODULE_INITIALIZATION_LEVEL_SCENE) {
+		GDREGISTER_CLASS(SpatialAudioPlayer3D);
 	}
-#endif
 }
 
 void uninitialize_spatial_audio_module(ModuleInitializationLevel p_level) {

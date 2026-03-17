@@ -1,3 +1,4 @@
+
 @tool
 @icon("images/acoustic_material.svg")
 extends Resource

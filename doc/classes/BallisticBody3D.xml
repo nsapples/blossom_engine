@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="BallisticBody3D" inherits="RigidBody3D" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+	<brief_description>
+		A 3D physics body for projectiles that raycasts along its velocity to detect impacts.
+	</brief_description>
+	<description>
+		A [RigidBody3D] designed for ballistic projectiles such as bullets, arrows, or other fast-moving objects. Every physics frame, it casts a ray from its previous position to its current position along its velocity vector, preventing fast projectiles from tunneling through objects.
+		When a hit is detected, the node reads the [PhysicsMaterial] from the collider to determine the outcome:
+		- If [member penetration_power] exceeds the material's [member PhysicsMaterial.penetration_resistance], the projectile penetrates through, losing speed proportionally, and the [signal penetrated] signal is emitted.
+		- If the material's [member PhysicsMaterial.reflection_factor] is greater than zero and the projectile cannot penetrate, it ricochets off the surface and the [signal ricocheted] signal is emitted.
+		- Otherwise, the projectile stops and freezes at the impact point, and the [signal hit] signal is emitted.
+		If the collider's [PhysicsMaterial] has an [member PhysicsMaterial.impact_scene] assigned, it is instantiated at the hit point, oriented along the surface normal. This can be used for impact effects such as particles, decals, or sound.
+		The node uses the inherited [member CollisionObject3D.collision_mask] to determine which objects it can hit, and always excludes itself from the raycast.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_ballistic_state" qualifiers="const">
+			<return type="int" enum="BallisticBody3D.BallisticState" />
+			<description>
+				Returns the current state of the projectile. See [enum BallisticState].
+			</description>
+		</method>
+		<method name="get_hit_normal" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				Returns the surface normal at the most recent impact point. Only valid after a hit, penetration, or ricochet has occurred.
+			</description>
+		</method>
+		<method name="get_hit_position" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				Returns the world-space position of the most recent impact. Only valid after a hit, penetration, or ricochet has occurred.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="penetration_power" type="float" setter="set_penetration_power" getter="get_penetration_power" default="1.0">
+			The penetrating force of this projectile. When the projectile hits a surface, this value is compared against the [PhysicsMaterial]'s [member PhysicsMaterial.penetration_resistance]. If [member penetration_power] is greater, the projectile passes through and its speed is reduced proportionally. Each penetration reduces the remaining [member penetration_power] by the material's resistance value.
+		</member>
+		<member name="raycast_margin" type="float" setter="set_raycast_margin" getter="get_raycast_margin" default="0.01">
+			Extra length added to the end of the raycast along the velocity direction. This helps catch impacts that occur just past the projectile's current position, preventing near-misses at high speeds.
+		</member>
+	</members>
+	<signals>
+		<signal name="hit">
+			<param index="0" name="position" type="Vector3" />
+			<param index="1" name="normal" type="Vector3" />
+			<description>
+				Emitted when the projectile impacts a surface and comes to a full stop. The projectile is frozen in place after this signal. [param position] is the world-space hit location and [param normal] is the surface normal.
+			</description>
+		</signal>
+		<signal name="penetrated">
+			<param index="0" name="position" type="Vector3" />
+			<param index="1" name="normal" type="Vector3" />
+			<description>
+				Emitted when the projectile penetrates through a surface and continues flying. This occurs when [member penetration_power] exceeds the material's [member PhysicsMaterial.penetration_resistance]. The projectile's speed is reduced after penetration.
+			</description>
+		</signal>
+		<signal name="ricocheted">
+			<param index="0" name="position" type="Vector3" />
+			<param index="1" name="normal" type="Vector3" />
+			<description>
+				Emitted when the projectile ricochets off a surface. This occurs when the material's [member PhysicsMaterial.reflection_factor] is greater than zero and the projectile cannot penetrate. The projectile's velocity is reflected along the surface normal, scaled by the reflection factor.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+		<constant name="STATE_FLYING" value="0" enum="BallisticState">
+			The projectile is in flight.
+		</constant>
+		<constant name="STATE_HIT" value="1" enum="BallisticState">
+			The projectile has hit a surface and stopped.
+		</constant>
+		<constant name="STATE_PENETRATED" value="2" enum="BallisticState">
+			The projectile has penetrated through a surface. This is a transient state; the projectile returns to [constant STATE_FLYING] immediately after.
+		</constant>
+		<constant name="STATE_RICOCHETED" value="3" enum="BallisticState">
+			The projectile has ricocheted off a surface. This is a transient state; the projectile returns to [constant STATE_FLYING] immediately after.
+		</constant>
+	</constants>
+</class>

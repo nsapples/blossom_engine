@@ -1,0 +1,12 @@
+Import("env")
+import os
+
+module_env = env.Clone()
+
+# Generate embedded GDScript header.
+gen_script = os.path.join(os.path.dirname(os.path.abspath(".")), "modules", "spatial_audio", "generate_embedded.py")
+gen_header = os.path.join(os.path.dirname(os.path.abspath(".")), "modules", "spatial_audio", "spatial_audio_embedded.gen.h")
+
+env.Execute(env.Action(f"python3 {gen_script}", "Generating spatial_audio_embedded.gen.h"))
+
+module_env.add_source_files(env.modules_sources, "*.cpp")

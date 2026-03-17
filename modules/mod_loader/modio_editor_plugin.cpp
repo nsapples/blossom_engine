@@ -132,6 +132,22 @@ void ModIOMainScreen::_build_create_section(VBoxContainer *p_root) {
 
 	create_section->add_child(summary_row);
 
+	// Logo path.
+	HBoxContainer *logo_row = memnew(HBoxContainer);
+	logo_row->add_theme_constant_override("separation", 6);
+
+	Label *logo_label = memnew(Label);
+	logo_label->set_text("Logo:");
+	logo_row->add_child(logo_label);
+
+	ugc_logo_input = memnew(LineEdit);
+	ugc_logo_input->set_placeholder("res://icon.png (minimum 512x288)");
+	ugc_logo_input->set_h_size_flags(SIZE_EXPAND_FILL);
+	ugc_logo_input->set_text("res://icon.png");
+	logo_row->add_child(ugc_logo_input);
+
+	create_section->add_child(logo_row);
+
 	// Create button.
 	Button *create_btn = memnew(Button);
 	create_btn->set_text("Create UGC Project");
@@ -204,6 +220,25 @@ void ModIOMainScreen::_on_create_ugc() {
 	add_field("summary", mod_summary);
 	add_field("visible", "0");
 	add_field("tags[]", type_tag);
+
+	// Add logo file.
+	String logo_path = ugc_logo_input->get_text().strip_edges();
+	if (!logo_path.is_empty()) {
+		String abs_logo = ProjectSettings::get_singleton()->globalize_path(logo_path);
+		Ref<FileAccess> logo_file = FileAccess::open(abs_logo, FileAccess::READ);
+		if (logo_file.is_valid()) {
+			uint64_t logo_size = logo_file->get_length();
+			PackedByteArray logo_data;
+			logo_data.resize(logo_size);
+			logo_file->get_buffer(logo_data.ptrw(), logo_size);
+
+			String logo_filename = logo_path.get_file();
+			String logo_header = vformat("--%s\r\nContent-Disposition: form-data; name=\"logo\"; filename=\"%s\"\r\nContent-Type: image/png\r\n\r\n", boundary, logo_filename);
+			body.append_array(logo_header.to_utf8_buffer());
+			body.append_array(logo_data);
+			body.append_array(String("\r\n").to_utf8_buffer());
+		}
+	}
 
 	String footer = "--" + boundary + "--\r\n";
 	body.append_array(footer.to_utf8_buffer());

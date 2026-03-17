@@ -32,6 +32,7 @@ class ModIOMainScreen : public Control {
 	VBoxContainer *create_section = nullptr;
 	LineEdit *ugc_id_input = nullptr;
 	LineEdit *ugc_summary_input = nullptr;
+	LineEdit *ugc_logo_input = nullptr;
 	OptionButton *ugc_type_dropdown = nullptr;
 	RichTextLabel *create_status = nullptr;
 	HTTPRequest *create_http = nullptr;

@@ -190,14 +190,28 @@ void ModIOUploader::upload_mod(const String &p_mod_path, const String &p_name, c
 	pending_mod_path = p_mod_path;
 	current_request = REQ_CREATE_MOD;
 
-	// Create the mod entry first.
+	// Create the mod entry first (multipart/form-data required).
 	String url = vformat("%s/games/%d/mods", api_base_url, BLOSSOM_GAME_ID);
+
+	String boundary = "----BlossomUpload" + String::num_int64(OS::get_singleton()->get_ticks_msec());
+	PackedByteArray body;
+	auto add_field = [&](const String &p_fname, const String &p_value) {
+		String part = vformat("--%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s\r\n", boundary, p_fname, p_value);
+		body.append_array(part.to_utf8_buffer());
+	};
+
+	add_field("name", p_name);
+	add_field("summary", p_summary);
+	add_field("visible", "1");
+
+	String footer = "--" + boundary + "--\r\n";
+	body.append_array(footer.to_utf8_buffer());
+
 	PackedStringArray headers;
 	headers.push_back("Authorization: Bearer " + access_token);
-	headers.push_back("Content-Type: application/x-www-form-urlencoded");
+	headers.push_back("Content-Type: multipart/form-data; boundary=" + boundary);
 
-	String body = vformat("name=%s&summary=%s&visible=1", p_name.uri_encode(), p_summary.uri_encode());
-	http->request(url, headers, HTTPClient::METHOD_POST, body);
+	http->request_raw(url, headers, HTTPClient::METHOD_POST, body);
 }
 
 // ===========================================================

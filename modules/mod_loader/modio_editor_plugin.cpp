@@ -321,7 +321,7 @@ void ModIOMainScreen::_on_create_mod_response(int p_result, int p_response_code,
 
 	// Generate mod.cfg with mod.io ID.
 	String cfg_content = vformat(
-			"[mod]\nname = \"%s\"\nversion = \"1.0.0\"\nauthor = \"\"\ndescription = \"\"\ntype = \"%s\"\nmodio_id = %d\n\n[dependencies]\nrequired = \n",
+			"[mod]\nname = \"%s\"\nversion = \"1.0.0\"\nauthor = \"\"\ndescription = \"\"\ntype = \"%s\"\nmodio_id = %d\n",
 			mod_name, type_folder, mod_id);
 
 	String cfg_path = abs_path.path_join("mod.cfg");

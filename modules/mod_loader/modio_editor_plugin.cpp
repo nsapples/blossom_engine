@@ -16,6 +16,7 @@
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/io/json.h"
+#include "core/os/os.h"
 #include "core/object/callable_mp.h"
 #include "editor/editor_interface.h"
 #include "editor/editor_node.h"
@@ -179,9 +180,6 @@ void ModIOMainScreen::_on_create_ugc() {
 	}
 
 	String url = vformat("https://g-11342.modapi.io/v1/games/%d/mods", ModIOUploader::BLOSSOM_GAME_ID);
-	PackedStringArray headers;
-	headers.push_back("Authorization: Bearer " + uploader->get_access_token());
-	headers.push_back("Content-Type: application/x-www-form-urlencoded");
 
 	// Add type as a tag.
 	String type_tag;
@@ -193,10 +191,28 @@ void ModIOMainScreen::_on_create_ugc() {
 		default: type_tag = "misc"; break;
 	}
 
-	String body = vformat("name=%s&summary=%s&visible=0&tags[]=%s",
-			mod_name.uri_encode(), mod_summary.uri_encode(), type_tag);
+	// mod.io requires multipart/form-data.
+	String boundary = "----BlossomUGC" + String::num_int64(OS::get_singleton()->get_ticks_msec());
 
-	create_http->request(url, headers, HTTPClient::METHOD_POST, body);
+	PackedByteArray body;
+	auto add_field = [&](const String &p_name, const String &p_value) {
+		String part = vformat("--%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s\r\n", boundary, p_name, p_value);
+		body.append_array(part.to_utf8_buffer());
+	};
+
+	add_field("name", mod_name);
+	add_field("summary", mod_summary);
+	add_field("visible", "0");
+	add_field("tags[]", type_tag);
+
+	String footer = "--" + boundary + "--\r\n";
+	body.append_array(footer.to_utf8_buffer());
+
+	PackedStringArray headers;
+	headers.push_back("Authorization: Bearer " + uploader->get_access_token());
+	headers.push_back("Content-Type: multipart/form-data; boundary=" + boundary);
+
+	create_http->request_raw(url, headers, HTTPClient::METHOD_POST, body);
 }
 
 void ModIOMainScreen::_on_create_mod_response(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body) {

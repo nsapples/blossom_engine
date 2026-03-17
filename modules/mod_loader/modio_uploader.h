@@ -33,7 +33,7 @@ public:
 
 private:
 	static ModIOUploader *singleton;
-	String api_base_url = "https://api.mod.io/v1";
+	String api_base_url = "https://g-11342.modapi.io/v1";
 	String access_token;
 	UploadStatus status = STATUS_IDLE;
 	String status_message;

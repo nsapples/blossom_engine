@@ -178,7 +178,7 @@ void ModIOMainScreen::_on_create_ugc() {
 		create_http->connect("request_completed", callable_mp(this, &ModIOMainScreen::_on_create_mod_response));
 	}
 
-	String url = vformat("https://api.mod.io/v1/games/%d/mods", ModIOUploader::BLOSSOM_GAME_ID);
+	String url = vformat("https://g-11342.modapi.io/v1/games/%d/mods", ModIOUploader::BLOSSOM_GAME_ID);
 	PackedStringArray headers;
 	headers.push_back("Authorization: Bearer " + uploader->get_access_token());
 	headers.push_back("Content-Type: application/x-www-form-urlencoded");

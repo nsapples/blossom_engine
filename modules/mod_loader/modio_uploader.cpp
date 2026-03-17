@@ -373,10 +373,19 @@ void ModIOUploader::_on_upload_file_complete(int p_response_code, const String &
 
 void ModIOUploader::_on_set_visible_complete(int p_response_code, const String &p_body) {
 	if (p_response_code == 200) {
+		// Extract profile_url from response.
+		String mod_url = "https://mod.io/g/vcvr/m/" + pending_mod_name.to_lower().replace(" ", "-");
+		Variant parsed = JSON::parse_string(p_body);
+		if (parsed.get_type() == Variant::DICTIONARY) {
+			Dictionary data = parsed;
+			mod_url = data.get("profile_url", mod_url);
+		}
+
 		status = STATUS_DONE;
-		status_message = "UGC uploaded and published!";
+		status_message = "UGC published! " + mod_url;
 		emit_signal("upload_completed", pending_mod_id);
-		print_line(vformat("[ModIO] UGC '%s' published (ID: %d).", pending_mod_name, pending_mod_id));
+		print_line(vformat("[ModIO] UGC '%s' published: %s", pending_mod_name, mod_url));
+		OS::get_singleton()->shell_open(mod_url);
 	} else {
 		// Upload succeeded but visibility failed — still report success.
 		status = STATUS_DONE;

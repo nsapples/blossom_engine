@@ -302,6 +302,9 @@ void ModIOUploader::_http_completed(int p_result, int p_response_code, const Pac
 		case REQ_UPLOAD_FILE:
 			_on_upload_file_complete(p_response_code, body_str);
 			break;
+		case REQ_SET_VISIBLE:
+			_on_set_visible_complete(p_response_code, body_str);
+			break;
 		default:
 			break;
 	}
@@ -348,14 +351,43 @@ void ModIOUploader::_on_upload_file_complete(int p_response_code, const String &
 	}
 
 	if (p_response_code == 201 || p_response_code == 200) {
-		status = STATUS_DONE;
-		status_message = "Mod uploaded successfully!";
-		emit_signal("upload_completed", pending_mod_id);
-		print_line(vformat("[ModIO] Mod '%s' uploaded successfully (ID: %d).", pending_mod_name, pending_mod_id));
+		// File uploaded — now make the mod visible.
+		status_message = "Publishing UGC...";
+		emit_signal("status_changed", (int)status, status_message);
+		current_request = REQ_SET_VISIBLE;
+
+		String url = vformat("%s/games/%d/mods/%d", api_base_url, BLOSSOM_GAME_ID, pending_mod_id);
+		String boundary = "----BlossomVis" + String::num_int64(OS::get_singleton()->get_ticks_msec());
+
+		PackedByteArray vis_body;
+		String field = vformat("--%s\r\nContent-Disposition: form-data; name=\"visible\"\r\n\r\n1\r\n--%s--\r\n", boundary, boundary);
+		vis_body.append_array(field.to_utf8_buffer());
+
+		PackedStringArray vis_headers;
+		vis_headers.push_back("Authorization: Bearer " + access_token);
+		vis_headers.push_back("Content-Type: multipart/form-data; boundary=" + boundary);
+
+		http->request_raw(url, vis_headers, HTTPClient::METHOD_PUT, vis_body);
+		return;
 	} else {
 		last_error = vformat("File upload failed (%d): %s", p_response_code, p_body);
 		status = STATUS_ERROR;
 		emit_signal("upload_failed", last_error);
+	}
+}
+
+void ModIOUploader::_on_set_visible_complete(int p_response_code, const String &p_body) {
+	if (p_response_code == 200) {
+		status = STATUS_DONE;
+		status_message = "UGC uploaded and published!";
+		emit_signal("upload_completed", pending_mod_id);
+		print_line(vformat("[ModIO] UGC '%s' published (ID: %d).", pending_mod_name, pending_mod_id));
+	} else {
+		// Upload succeeded but visibility failed — still report success.
+		status = STATUS_DONE;
+		status_message = "UGC uploaded (set visible manually on mod.io).";
+		emit_signal("upload_completed", pending_mod_id);
+		print_line(vformat("[ModIO] UGC uploaded but visibility update failed (%d): %s", p_response_code, p_body));
 	}
 }
 

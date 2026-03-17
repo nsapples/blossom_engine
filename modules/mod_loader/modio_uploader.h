@@ -53,6 +53,7 @@ private:
 		REQ_EMAIL_EXCHANGE,
 		REQ_CREATE_MOD,
 		REQ_UPLOAD_FILE,
+		REQ_SET_VISIBLE,
 	};
 	RequestType current_request = REQ_NONE;
 	int pending_mod_id = 0;
@@ -63,6 +64,7 @@ private:
 	void _http_completed(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body);
 	void _on_email_request_complete(int p_response_code, const String &p_body);
 	void _on_email_exchange_complete(int p_response_code, const String &p_body);
+	void _on_set_visible_complete(int p_response_code, const String &p_body);
 	void _on_create_mod_complete(int p_response_code, const String &p_body);
 	void _on_upload_file_complete(int p_response_code, const String &p_body);
 

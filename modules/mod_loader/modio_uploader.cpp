@@ -138,7 +138,7 @@ void ModIOUploader::upload_mod(const String &p_mod_path, const String &p_name, c
 	status_message = "Packaging mod...";
 	emit_signal("status_changed", (int)status, status_message);
 
-	pending_pck_path = p_mod_path.path_join("..").path_join(p_name.to_lower().replace(" ", "_") + ".pck");
+	pending_pck_path = OS::get_singleton()->get_user_data_dir().path_join(p_name.to_lower().replace(" ", "_") + ".pck");
 
 	Ref<PCKPacker> packer;
 	packer.instantiate();

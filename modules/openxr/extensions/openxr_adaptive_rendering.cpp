@@ -8,7 +8,9 @@
 
 #include "openxr_adaptive_rendering.h"
 
+#include "../openxr_interface.h"
 #include "core/config/project_settings.h"
+#include "core/object/class_db.h"
 #include "core/os/os.h"
 #include "servers/xr/xr_server.h"
 
@@ -53,7 +55,7 @@ void OpenXRAdaptiveRendering::on_post_draw_viewport(RID p_render_target) {
 
 	// Get target frame time from display refresh rate.
 	float target_fps = 90.0f;
-	Ref<XRInterface> xr_interface = XRServer::get_singleton()->get_primary_interface();
+	Ref<OpenXRInterface> xr_interface = XRServer::get_singleton()->get_primary_interface();
 	if (xr_interface.is_valid()) {
 		float display_refresh = xr_interface->get_display_refresh_rate();
 		if (display_refresh > 0.0f) {
@@ -129,7 +131,7 @@ void OpenXRAdaptiveRendering::_increase_quality() {
 }
 
 void OpenXRAdaptiveRendering::_apply_render_scale() {
-	Ref<XRInterface> xr_interface = XRServer::get_singleton()->get_primary_interface();
+	Ref<OpenXRInterface> xr_interface = XRServer::get_singleton()->get_primary_interface();
 	if (xr_interface.is_valid()) {
 		xr_interface->set_render_target_size_multiplier(current_render_scale);
 	}
@@ -191,7 +193,7 @@ float OpenXRAdaptiveRendering::get_current_frame_time_ms() const {
 
 float OpenXRAdaptiveRendering::get_target_frame_time_ms() const {
 	float target_fps = 90.0f;
-	Ref<XRInterface> xr_interface = XRServer::get_singleton()->get_primary_interface();
+	Ref<OpenXRInterface> xr_interface = XRServer::get_singleton()->get_primary_interface();
 	if (xr_interface.is_valid()) {
 		float display_refresh = xr_interface->get_display_refresh_rate();
 		if (display_refresh > 0.0f) {

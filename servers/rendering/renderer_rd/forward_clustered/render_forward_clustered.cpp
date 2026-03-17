@@ -2134,13 +2134,16 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 			RD::get_singleton()->draw_command_end_label();
 		}
 
-		// Auto occlusion culling: read back depth for next frame's culling.
+		// Auto occlusion culling: store depth texture reference for next frame's culling.
 		if (RendererSceneAutoOcclusionCull::get_singleton() && RendererSceneAutoOcclusionCull::get_singleton()->is_enabled()) {
 			RID depth_tex = rb->get_depth_texture(0);
 			if (depth_tex.is_valid()) {
 				Size2i depth_size = rb->get_internal_size();
-				// Use async readback to avoid GPU stall.
-				RD::get_singleton()->texture_get_data_async(depth_tex, 0, callable_mp(RendererSceneAutoOcclusionCull::get_singleton(), &RendererSceneAutoOcclusionCull::_on_depth_readback).bind(depth_size));
+				// Read depth synchronously (fast on modern GPUs with cached readback).
+				Vector<uint8_t> depth_data = RD::get_singleton()->texture_get_data(depth_tex, 0);
+				if (!depth_data.is_empty()) {
+					RendererSceneAutoOcclusionCull::get_singleton()->_on_depth_readback(depth_data, depth_size);
+				}
 			}
 		}
 	}

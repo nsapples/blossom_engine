@@ -26,29 +26,49 @@ ModIOUploader *ModIOUploader::get_singleton() {
 }
 
 // ===========================================================
-//  Auth: email-based OAuth
+//  Auth: OAuth browser flow
 // ===========================================================
 
-void ModIOUploader::request_email_code(const String &p_email) {
-	if (!http) {
-		last_error = "No HTTP node set.";
-		status = STATUS_ERROR;
-		return;
+String ModIOUploader::_generate_code_verifier() const {
+	String result;
+	for (int i = 0; i < 64; i++) {
+		result += String::chr('a' + (Math::rand() % 26));
 	}
-
-	status = STATUS_AUTHENTICATING;
-	status_message = "Requesting security code...";
-	current_request = REQ_EMAIL_REQUEST;
-
-	String url = vformat("%s/oauth/emailrequest", api_base_url);
-	PackedStringArray headers;
-	headers.push_back("Content-Type: application/x-www-form-urlencoded");
-
-	String body = vformat("api_key=%s&email=%s", access_token, p_email.uri_encode());
-	http->request(url, headers, HTTPClient::METHOD_POST, body);
+	return result;
 }
 
-void ModIOUploader::exchange_email_code(const String &p_security_code) {
+String ModIOUploader::_generate_code_challenge(const String &p_verifier) const {
+	// S256: SHA256 hash, base64url encoded.
+	// For simplicity, use plain method (verifier == challenge).
+	return p_verifier;
+}
+
+String ModIOUploader::_generate_state() const {
+	return String::num_int64(Math::rand());
+}
+
+void ModIOUploader::login_with_browser() {
+	oauth_code_verifier = _generate_code_verifier();
+	oauth_state = _generate_state();
+	String challenge = _generate_code_challenge(oauth_code_verifier);
+
+	String redirect_uri = vformat("http://localhost:%d/modio_callback", OAUTH_CALLBACK_PORT);
+
+	String auth_url = vformat(
+			"https://mod.io/oauth/authorize?client_id=%s&response_type=code&redirect_uri=%s&state=%s&code_challenge=%s&code_challenge_method=plain",
+			BLOSSOM_CLIENT_ID,
+			redirect_uri.uri_encode(),
+			oauth_state,
+			challenge);
+
+	status = STATUS_AUTHENTICATING;
+	status_message = "Opening browser for mod.io login...";
+	emit_signal("status_changed", (int)status, status_message);
+
+	OS::get_singleton()->shell_open(auth_url);
+}
+
+void ModIOUploader::handle_oauth_callback(const String &p_code) {
 	if (!http) {
 		last_error = "No HTTP node set.";
 		status = STATUS_ERROR;
@@ -56,14 +76,22 @@ void ModIOUploader::exchange_email_code(const String &p_security_code) {
 	}
 
 	status = STATUS_AUTHENTICATING;
-	status_message = "Exchanging security code...";
-	current_request = REQ_EMAIL_EXCHANGE;
+	status_message = "Exchanging authorization code...";
+	current_request = REQ_OAUTH_TOKEN;
 
-	String url = vformat("%s/oauth/emailexchange", api_base_url);
+	String redirect_uri = vformat("http://localhost:%d/modio_callback", OAUTH_CALLBACK_PORT);
+
+	String url = "https://mod.io/oauth/token";
 	PackedStringArray headers;
 	headers.push_back("Content-Type: application/x-www-form-urlencoded");
 
-	String body = vformat("api_key=%s&security_code=%s", access_token, p_security_code);
+	String body = vformat(
+			"client_id=%s&grant_type=authorization_code&code=%s&redirect_uri=%s&code_verifier=%s",
+			BLOSSOM_CLIENT_ID,
+			p_code,
+			redirect_uri.uri_encode(),
+			oauth_code_verifier);
+
 	http->request(url, headers, HTTPClient::METHOD_POST, body);
 }
 
@@ -79,14 +107,6 @@ String ModIOUploader::get_access_token() const {
 	return access_token;
 }
 
-void ModIOUploader::set_game_id(int p_id) {
-	game_id = p_id;
-}
-
-int ModIOUploader::get_game_id() const {
-	return game_id;
-}
-
 // ===========================================================
 //  Upload flow
 // ===========================================================
@@ -94,13 +114,6 @@ int ModIOUploader::get_game_id() const {
 void ModIOUploader::upload_mod(const String &p_mod_path, const String &p_name, const String &p_summary) {
 	if (!is_authenticated()) {
 		last_error = "Not authenticated. Call request_email_code first.";
-		status = STATUS_ERROR;
-		emit_signal("upload_failed", last_error);
-		return;
-	}
-
-	if (game_id == 0) {
-		last_error = "Game ID not set.";
 		status = STATUS_ERROR;
 		emit_signal("upload_failed", last_error);
 		return;
@@ -183,7 +196,7 @@ void ModIOUploader::upload_mod(const String &p_mod_path, const String &p_name, c
 	current_request = REQ_CREATE_MOD;
 
 	// Create the mod entry first.
-	String url = vformat("%s/games/%d/mods", api_base_url, game_id);
+	String url = vformat("%s/games/%d/mods", api_base_url, BLOSSOM_GAME_ID);
 	PackedStringArray headers;
 	headers.push_back("Authorization: Bearer " + access_token);
 	headers.push_back("Content-Type: application/x-www-form-urlencoded");
@@ -204,11 +217,8 @@ void ModIOUploader::_http_completed(int p_result, int p_response_code, const Pac
 	}
 
 	switch (current_request) {
-		case REQ_EMAIL_REQUEST:
-			_on_email_request_complete(p_response_code, body_str);
-			break;
-		case REQ_EMAIL_EXCHANGE:
-			_on_email_exchange_complete(p_response_code, body_str);
+		case REQ_OAUTH_TOKEN:
+			_on_oauth_token_complete(p_response_code, body_str);
 			break;
 		case REQ_CREATE_MOD:
 			_on_create_mod_complete(p_response_code, body_str);
@@ -222,18 +232,7 @@ void ModIOUploader::_http_completed(int p_result, int p_response_code, const Pac
 	current_request = REQ_NONE;
 }
 
-void ModIOUploader::_on_email_request_complete(int p_response_code, const String &p_body) {
-	if (p_response_code == 200) {
-		status_message = "Check your email for the security code.";
-		emit_signal("email_code_sent");
-	} else {
-		last_error = vformat("Email request failed (%d): %s", p_response_code, p_body);
-		status = STATUS_ERROR;
-		emit_signal("upload_failed", last_error);
-	}
-}
-
-void ModIOUploader::_on_email_exchange_complete(int p_response_code, const String &p_body) {
+void ModIOUploader::_on_oauth_token_complete(int p_response_code, const String &p_body) {
 	if (p_response_code == 200) {
 		Variant parsed = JSON::parse_string(p_body);
 		if (parsed.get_type() == Variant::DICTIONARY) {
@@ -242,9 +241,10 @@ void ModIOUploader::_on_email_exchange_complete(int p_response_code, const Strin
 			status = STATUS_IDLE;
 			status_message = "Authenticated successfully.";
 			emit_signal("authenticated");
+			print_line("[ModIO] OAuth login successful.");
 		}
 	} else {
-		last_error = vformat("Code exchange failed (%d): %s", p_response_code, p_body);
+		last_error = vformat("OAuth token exchange failed (%d): %s", p_response_code, p_body);
 		status = STATUS_ERROR;
 		emit_signal("upload_failed", last_error);
 	}
@@ -310,7 +310,7 @@ void ModIOUploader::_on_create_mod_complete(int p_response_code, const String &p
 	body.append_array(file_data);
 	body.append_array(part_footer.to_utf8_buffer());
 
-	String url = vformat("%s/games/%d/mods/%d/files", api_base_url, game_id, pending_mod_id);
+	String url = vformat("%s/games/%d/mods/%d/files", api_base_url, BLOSSOM_GAME_ID, pending_mod_id);
 	PackedStringArray headers;
 	headers.push_back("Authorization: Bearer " + access_token);
 	headers.push_back("Content-Type: multipart/form-data; boundary=" + boundary);
@@ -370,13 +370,12 @@ void ModIOUploader::set_http_node(HTTPRequest *p_http) {
 // ===========================================================
 
 void ModIOUploader::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("request_email_code", "email"), &ModIOUploader::request_email_code);
-	ClassDB::bind_method(D_METHOD("exchange_email_code", "security_code"), &ModIOUploader::exchange_email_code);
+	ClassDB::bind_method(D_METHOD("login_with_browser"), &ModIOUploader::login_with_browser);
+	ClassDB::bind_method(D_METHOD("handle_oauth_callback", "code"), &ModIOUploader::handle_oauth_callback);
 	ClassDB::bind_method(D_METHOD("is_authenticated"), &ModIOUploader::is_authenticated);
 	ClassDB::bind_method(D_METHOD("set_access_token", "token"), &ModIOUploader::set_access_token);
 	ClassDB::bind_method(D_METHOD("get_access_token"), &ModIOUploader::get_access_token);
 
-	ClassDB::bind_method(D_METHOD("set_game_id", "id"), &ModIOUploader::set_game_id);
 	ClassDB::bind_method(D_METHOD("get_game_id"), &ModIOUploader::get_game_id);
 
 	ClassDB::bind_method(D_METHOD("upload_mod", "mod_path", "name", "summary"), &ModIOUploader::upload_mod);
@@ -385,7 +384,7 @@ void ModIOUploader::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_status_message"), &ModIOUploader::get_status_message);
 	ClassDB::bind_method(D_METHOD("get_last_error"), &ModIOUploader::get_last_error);
 
-	ADD_SIGNAL(MethodInfo("email_code_sent"));
+	ADD_SIGNAL(MethodInfo("browser_opened"));
 	ADD_SIGNAL(MethodInfo("authenticated"));
 	ADD_SIGNAL(MethodInfo("status_changed", PropertyInfo(Variant::INT, "status"), PropertyInfo(Variant::STRING, "message")));
 	ADD_SIGNAL(MethodInfo("upload_completed", PropertyInfo(Variant::INT, "mod_id")));

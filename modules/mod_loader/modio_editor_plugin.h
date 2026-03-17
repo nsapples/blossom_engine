@@ -13,8 +13,10 @@
 #include "editor/plugins/editor_plugin.h"
 #include "scene/gui/box_container.h"
 #include "scene/gui/button.h"
+#include "scene/gui/dialogs.h"
 #include "scene/gui/label.h"
 #include "scene/gui/line_edit.h"
+#include "scene/gui/option_button.h"
 #include "scene/gui/panel_container.h"
 #include "scene/gui/rich_text_label.h"
 #include "scene/gui/separator.h"
@@ -26,12 +28,14 @@ class ModIOMainScreen : public Control {
 
 	HTTPRequest *http = nullptr;
 
+	// Create UGC UI.
+	VBoxContainer *create_section = nullptr;
+	LineEdit *ugc_id_input = nullptr;
+	OptionButton *ugc_type_dropdown = nullptr;
+	RichTextLabel *create_status = nullptr;
+
 	// Auth UI.
 	VBoxContainer *auth_section = nullptr;
-	LineEdit *email_input = nullptr;
-	LineEdit *code_input = nullptr;
-	Button *send_code_btn = nullptr;
-	Button *verify_btn = nullptr;
 	RichTextLabel *auth_status = nullptr;
 
 	// Upload UI.
@@ -39,7 +43,6 @@ class ModIOMainScreen : public Control {
 	LineEdit *mod_path_input = nullptr;
 	LineEdit *mod_name_input = nullptr;
 	TextEdit *mod_summary_input = nullptr;
-	LineEdit *game_id_input = nullptr;
 	Button *validate_btn = nullptr;
 	Button *upload_btn = nullptr;
 	RichTextLabel *upload_status = nullptr;
@@ -47,15 +50,13 @@ class ModIOMainScreen : public Control {
 	// Validation results.
 	RichTextLabel *validation_results = nullptr;
 
-	// Toast.
-	Label *toast_label = nullptr;
-
 	void _build_ui();
+	void _build_create_section(VBoxContainer *p_root);
 	void _build_auth_section(VBoxContainer *p_root);
 	void _build_upload_section(VBoxContainer *p_root);
 
+	void _on_create_ugc();
 	void _on_send_code();
-	void _on_verify_code();
 	void _on_validate();
 	void _on_upload();
 
@@ -63,8 +64,6 @@ class ModIOMainScreen : public Control {
 	void _on_status_changed(int p_status, const String &p_message);
 	void _on_upload_completed(int p_mod_id);
 	void _on_upload_failed(const String &p_error);
-
-	void _show_toast(const String &p_msg);
 
 public:
 	void refresh();

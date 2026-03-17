@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="ModLoader" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+	<brief_description>
+		Singleton for loading and managing mods at runtime.
+	</brief_description>
+	<description>
+		The [ModLoader] singleton scans a mods directory for [code].pck[/code] files and mod folders, loads them at runtime without requiring a restart, and manages their lifecycle.
+		Mods can contain scenes, scripts, textures, audio, and any other Godot resource. Folder-based mods require a [code]mod.cfg[/code] metadata file. PCK mods are loaded directly.
+		[b]mod.cfg format:[/b]
+		[codeblock]
+		[mod]
+		name = "My Mod"
+		version = "1.0.0"
+		author = "Creator"
+		description = "Adds cool stuff"
+		entry_scene = "res://mods/my_mod/main.tscn"
+
+		[dependencies]
+		required = "base_mod"
+		optional = "optional_mod"
+		[/codeblock]
+		[b]Usage:[/b]
+		[codeblock]
+		# Scan and load all mods on startup:
+		ModLoader.scan_mods()
+		ModLoader.load_all_mods()
+
+		# Or load specific mods:
+		ModLoader.load_mod("my_mod")
+
+		# Check what's loaded:
+		for mod_id in ModLoader.get_mod_list():
+		    var info = ModLoader.get_mod_info(mod_id)
+		    print("%s v%s by %s" % [info.name, info.version, info.author])
+		[/codeblock]
+		By default, mods are loaded from [code]user://mods/[/code]. Mods with an [code]entry_scene[/code] or [code]entry_script[/code] are registered as autoloads automatically.
+		Mods are loaded in dependency order — mods without dependencies load first, then mods whose dependencies are satisfied.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="scan_mods">
+			<return type="void" />
+			<description>
+				Scans the mods directory for [code].pck[/code] files and folders with [code]mod.cfg[/code]. Call this before [method load_all_mods]. Creates the mods directory if it doesn't exist.
+			</description>
+		</method>
+		<method name="load_mod">
+			<return type="void" />
+			<param index="0" name="id" type="String" />
+			<description>
+				Loads a specific mod by its ID (folder name or PCK filename without extension). Automatically loads required dependencies first. Emits [signal mod_loaded] on success.
+			</description>
+		</method>
+		<method name="unload_mod">
+			<return type="void" />
+			<param index="0" name="id" type="String" />
+			<description>
+				Unloads a mod by removing its autoload entry. Note: PCK file data remains in memory until the application exits. Emits [signal mod_unloaded].
+			</description>
+		</method>
+		<method name="load_all_mods">
+			<return type="void" />
+			<description>
+				Loads all discovered mods in dependency order. Calls [method scan_mods] first if no mods have been scanned yet.
+			</description>
+		</method>
+		<method name="get_mod_list" qualifiers="const">
+			<return type="PackedStringArray" />
+			<description>
+				Returns an array of all discovered mod IDs.
+			</description>
+		</method>
+		<method name="get_mod_info" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="id" type="String" />
+			<description>
+				Returns a dictionary with mod metadata: [code]id[/code], [code]name[/code], [code]version[/code], [code]author[/code], [code]description[/code], [code]path[/code], [code]is_pck[/code], [code]status[/code], [code]error[/code], [code]dependencies[/code].
+			</description>
+		</method>
+		<method name="is_mod_loaded" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="id" type="String" />
+			<description>
+				Returns [code]true[/code] if the mod with the given ID is currently loaded.
+			</description>
+		</method>
+		<method name="get_mod_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the total number of discovered mods.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="mods_directory" type="String" setter="set_mods_directory" getter="get_mods_directory" default="&quot;user://mods&quot;">
+			The directory to scan for mods. Defaults to [code]user://mods/[/code].
+		</member>
+		<member name="allow_file_replacement" type="bool" setter="set_allow_file_replacement" getter="get_allow_file_replacement" default="false">
+			If [code]true[/code], mods can override existing game files. If [code]false[/code], mod resources are added alongside but don't replace existing ones. Enable this for total conversion mods.
+		</member>
+	</members>
+	<signals>
+		<signal name="mod_loaded">
+			<param index="0" name="id" type="String" />
+			<description>
+				Emitted when a mod is successfully loaded and activated.
+			</description>
+		</signal>
+		<signal name="mod_unloaded">
+			<param index="0" name="id" type="String" />
+			<description>
+				Emitted when a mod is unloaded.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+		<constant name="MOD_STATUS_UNLOADED" value="0" enum="ModStatus">
+			The mod has been discovered but not yet loaded.
+		</constant>
+		<constant name="MOD_STATUS_LOADED" value="1" enum="ModStatus">
+			The mod's PCK or folder has been mounted into the resource system.
+		</constant>
+		<constant name="MOD_STATUS_ENABLED" value="2" enum="ModStatus">
+			The mod is fully active with its entry point registered as an autoload.
+		</constant>
+		<constant name="MOD_STATUS_ERROR" value="3" enum="ModStatus">
+			The mod failed to load due to missing dependencies, corrupt files, or other errors.
+		</constant>
+	</constants>
+</class>

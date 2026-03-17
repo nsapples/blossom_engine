@@ -36,6 +36,10 @@ class ModIOMainScreen : public Control {
 
 	// Auth UI.
 	VBoxContainer *auth_section = nullptr;
+	LineEdit *email_input = nullptr;
+	LineEdit *code_input = nullptr;
+	Button *send_code_btn = nullptr;
+	Button *verify_btn = nullptr;
 	RichTextLabel *auth_status = nullptr;
 
 	// Upload UI.
@@ -57,6 +61,8 @@ class ModIOMainScreen : public Control {
 
 	void _on_create_ugc();
 	void _on_send_code();
+	void _on_verify_code();
+	void _update_locked_state();
 	void _on_validate();
 	void _on_upload();
 

@@ -11,6 +11,7 @@
 #include "modio_uploader.h"
 #include "mod_validator.h"
 
+#include "core/config/project_settings.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/io/json.h"
@@ -26,49 +27,62 @@ ModIOUploader *ModIOUploader::get_singleton() {
 }
 
 // ===========================================================
-//  Auth: OAuth browser flow
+//  Auth: email-based
 // ===========================================================
 
-String ModIOUploader::_generate_code_verifier() const {
-	String result;
-	for (int i = 0; i < 64; i++) {
-		result += String::chr('a' + (Math::rand() % 26));
+void ModIOUploader::_load_api_key() {
+	// Try environment variable first.
+	if (OS::get_singleton()->has_environment("MODIO_API_KEY")) {
+		api_key = OS::get_singleton()->get_environment("MODIO_API_KEY");
+		return;
 	}
-	return result;
+	// Try project setting.
+	if (ProjectSettings::get_singleton()->has_setting("modio/api_key")) {
+		api_key = GLOBAL_GET("modio/api_key");
+		return;
+	}
+	// Try local file.
+	String key_path = ProjectSettings::get_singleton()->globalize_path("res://.modio_key");
+	if (FileAccess::exists(key_path)) {
+		Ref<FileAccess> f = FileAccess::open(key_path, FileAccess::READ);
+		if (f.is_valid()) {
+			api_key = f->get_as_text().strip_edges();
+		}
+	}
 }
 
-String ModIOUploader::_generate_code_challenge(const String &p_verifier) const {
-	// S256: SHA256 hash, base64url encoded.
-	// For simplicity, use plain method (verifier == challenge).
-	return p_verifier;
+bool ModIOUploader::has_api_key() const {
+	return !api_key.is_empty();
 }
 
-String ModIOUploader::_generate_state() const {
-	return String::num_int64(Math::rand());
-}
+void ModIOUploader::request_email_code(const String &p_email) {
+	if (!http) {
+		last_error = "No HTTP node set.";
+		status = STATUS_ERROR;
+		return;
+	}
 
-void ModIOUploader::login_with_browser() {
-	oauth_code_verifier = _generate_code_verifier();
-	oauth_state = _generate_state();
-	String challenge = _generate_code_challenge(oauth_code_verifier);
-
-	String redirect_uri = vformat("http://localhost:%d/modio_callback", OAUTH_CALLBACK_PORT);
-
-	String auth_url = vformat(
-			"https://mod.io/oauth/authorize?client_id=%s&response_type=code&redirect_uri=%s&state=%s&code_challenge=%s&code_challenge_method=plain",
-			BLOSSOM_CLIENT_ID,
-			redirect_uri.uri_encode(),
-			oauth_state,
-			challenge);
+	_load_api_key();
+	if (api_key.is_empty()) {
+		last_error = "No mod.io API key found. Set MODIO_API_KEY env var or create res://.modio_key file.";
+		status = STATUS_ERROR;
+		emit_signal("upload_failed", last_error);
+		return;
+	}
 
 	status = STATUS_AUTHENTICATING;
-	status_message = "Opening browser for mod.io login...";
-	emit_signal("status_changed", (int)status, status_message);
+	status_message = "Sending security code to " + p_email + "...";
+	current_request = REQ_EMAIL_REQUEST;
 
-	OS::get_singleton()->shell_open(auth_url);
+	String url = vformat("%s/oauth/emailrequest?api_key=%s", api_base_url, api_key);
+	PackedStringArray headers;
+	headers.push_back("Content-Type: application/x-www-form-urlencoded");
+
+	String body = "email=" + p_email.uri_encode();
+	http->request(url, headers, HTTPClient::METHOD_POST, body);
 }
 
-void ModIOUploader::handle_oauth_callback(const String &p_code) {
+void ModIOUploader::exchange_email_code(const String &p_security_code) {
 	if (!http) {
 		last_error = "No HTTP node set.";
 		status = STATUS_ERROR;
@@ -76,22 +90,14 @@ void ModIOUploader::handle_oauth_callback(const String &p_code) {
 	}
 
 	status = STATUS_AUTHENTICATING;
-	status_message = "Exchanging authorization code...";
-	current_request = REQ_OAUTH_TOKEN;
+	status_message = "Verifying security code...";
+	current_request = REQ_EMAIL_EXCHANGE;
 
-	String redirect_uri = vformat("http://localhost:%d/modio_callback", OAUTH_CALLBACK_PORT);
-
-	String url = "https://mod.io/oauth/token";
+	String url = vformat("%s/oauth/emailexchange?api_key=%s", api_base_url, api_key);
 	PackedStringArray headers;
 	headers.push_back("Content-Type: application/x-www-form-urlencoded");
 
-	String body = vformat(
-			"client_id=%s&grant_type=authorization_code&code=%s&redirect_uri=%s&code_verifier=%s",
-			BLOSSOM_CLIENT_ID,
-			p_code,
-			redirect_uri.uri_encode(),
-			oauth_code_verifier);
-
+	String body = "security_code=" + p_security_code;
 	http->request(url, headers, HTTPClient::METHOD_POST, body);
 }
 
@@ -217,8 +223,11 @@ void ModIOUploader::_http_completed(int p_result, int p_response_code, const Pac
 	}
 
 	switch (current_request) {
-		case REQ_OAUTH_TOKEN:
-			_on_oauth_token_complete(p_response_code, body_str);
+		case REQ_EMAIL_REQUEST:
+			_on_email_request_complete(p_response_code, body_str);
+			break;
+		case REQ_EMAIL_EXCHANGE:
+			_on_email_exchange_complete(p_response_code, body_str);
 			break;
 		case REQ_CREATE_MOD:
 			_on_create_mod_complete(p_response_code, body_str);
@@ -232,19 +241,30 @@ void ModIOUploader::_http_completed(int p_result, int p_response_code, const Pac
 	current_request = REQ_NONE;
 }
 
-void ModIOUploader::_on_oauth_token_complete(int p_response_code, const String &p_body) {
+void ModIOUploader::_on_email_request_complete(int p_response_code, const String &p_body) {
+	if (p_response_code == 200) {
+		status_message = "Security code sent! Check your email.";
+		emit_signal("status_changed", (int)status, status_message);
+	} else {
+		last_error = vformat("Email request failed (%d): %s", p_response_code, p_body);
+		status = STATUS_ERROR;
+		emit_signal("upload_failed", last_error);
+	}
+}
+
+void ModIOUploader::_on_email_exchange_complete(int p_response_code, const String &p_body) {
 	if (p_response_code == 200) {
 		Variant parsed = JSON::parse_string(p_body);
 		if (parsed.get_type() == Variant::DICTIONARY) {
 			Dictionary data = parsed;
 			access_token = data.get("access_token", "");
 			status = STATUS_IDLE;
-			status_message = "Authenticated successfully.";
+			status_message = "Logged in successfully.";
 			emit_signal("authenticated");
-			print_line("[ModIO] OAuth login successful.");
+			print_line("[ModIO] Email auth successful.");
 		}
 	} else {
-		last_error = vformat("OAuth token exchange failed (%d): %s", p_response_code, p_body);
+		last_error = vformat("Code exchange failed (%d): %s", p_response_code, p_body);
 		status = STATUS_ERROR;
 		emit_signal("upload_failed", last_error);
 	}
@@ -370,8 +390,9 @@ void ModIOUploader::set_http_node(HTTPRequest *p_http) {
 // ===========================================================
 
 void ModIOUploader::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("login_with_browser"), &ModIOUploader::login_with_browser);
-	ClassDB::bind_method(D_METHOD("handle_oauth_callback", "code"), &ModIOUploader::handle_oauth_callback);
+	ClassDB::bind_method(D_METHOD("request_email_code", "email"), &ModIOUploader::request_email_code);
+	ClassDB::bind_method(D_METHOD("exchange_email_code", "security_code"), &ModIOUploader::exchange_email_code);
+	ClassDB::bind_method(D_METHOD("has_api_key"), &ModIOUploader::has_api_key);
 	ClassDB::bind_method(D_METHOD("is_authenticated"), &ModIOUploader::is_authenticated);
 	ClassDB::bind_method(D_METHOD("set_access_token", "token"), &ModIOUploader::set_access_token);
 	ClassDB::bind_method(D_METHOD("get_access_token"), &ModIOUploader::get_access_token);
@@ -384,7 +405,7 @@ void ModIOUploader::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_status_message"), &ModIOUploader::get_status_message);
 	ClassDB::bind_method(D_METHOD("get_last_error"), &ModIOUploader::get_last_error);
 
-	ADD_SIGNAL(MethodInfo("browser_opened"));
+	ADD_SIGNAL(MethodInfo("email_code_sent"));
 	ADD_SIGNAL(MethodInfo("authenticated"));
 	ADD_SIGNAL(MethodInfo("status_changed", PropertyInfo(Variant::INT, "status"), PropertyInfo(Variant::STRING, "message")));
 	ADD_SIGNAL(MethodInfo("upload_completed", PropertyInfo(Variant::INT, "mod_id")));

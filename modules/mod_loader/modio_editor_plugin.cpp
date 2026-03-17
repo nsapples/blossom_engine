@@ -228,13 +228,48 @@ void ModIOMainScreen::_build_auth_section(VBoxContainer *p_root) {
 	auth_status->set_use_bbcode(true);
 	auth_status->set_fit_content(true);
 	auth_status->set_scroll_active(false);
-	auth_status->set_text("[color=yellow]Not logged in[/color]");
+	auth_status->set_text("[color=yellow]Not logged in — all features locked.[/color]");
 	auth_section->add_child(auth_status);
 
-	Button *login_btn = memnew(Button);
-	login_btn->set_text("Login with mod.io");
-	login_btn->connect("pressed", callable_mp(this, &ModIOMainScreen::_on_send_code));
-	auth_section->add_child(login_btn);
+	// Email row.
+	HBoxContainer *email_row = memnew(HBoxContainer);
+	email_row->add_theme_constant_override("separation", 6);
+
+	Label *email_label = memnew(Label);
+	email_label->set_text("Email:");
+	email_row->add_child(email_label);
+
+	email_input = memnew(LineEdit);
+	email_input->set_placeholder("your@email.com");
+	email_input->set_h_size_flags(SIZE_EXPAND_FILL);
+	email_row->add_child(email_input);
+
+	send_code_btn = memnew(Button);
+	send_code_btn->set_text("Send Code");
+	send_code_btn->connect("pressed", callable_mp(this, &ModIOMainScreen::_on_send_code));
+	email_row->add_child(send_code_btn);
+
+	auth_section->add_child(email_row);
+
+	// Code row.
+	HBoxContainer *code_row = memnew(HBoxContainer);
+	code_row->add_theme_constant_override("separation", 6);
+
+	Label *code_label = memnew(Label);
+	code_label->set_text("Code:");
+	code_row->add_child(code_label);
+
+	code_input = memnew(LineEdit);
+	code_input->set_placeholder("Security code from email");
+	code_input->set_h_size_flags(SIZE_EXPAND_FILL);
+	code_row->add_child(code_input);
+
+	verify_btn = memnew(Button);
+	verify_btn->set_text("Verify");
+	verify_btn->connect("pressed", callable_mp(this, &ModIOMainScreen::_on_verify_code));
+	code_row->add_child(verify_btn);
+
+	auth_section->add_child(code_row);
 
 	p_root->add_child(auth_section);
 }
@@ -319,6 +354,12 @@ void ModIOMainScreen::_build_upload_section(VBoxContainer *p_root) {
 // ===========================================================
 
 void ModIOMainScreen::_on_send_code() {
+	String email = email_input->get_text().strip_edges();
+	if (email.is_empty()) {
+		auth_status->set_text("[color=red]Enter your email address.[/color]");
+		return;
+	}
+
 	ModIOUploader *uploader = ModIOUploader::get_singleton();
 	if (!uploader) {
 		return;
@@ -332,8 +373,54 @@ void ModIOMainScreen::_on_send_code() {
 		uploader->connect("upload_failed", callable_mp(this, &ModIOMainScreen::_on_upload_failed));
 	}
 
-	uploader->login_with_browser();
-	auth_status->set_text("[color=cyan]Opening browser... Log in to mod.io and authorize the app.[/color]");
+	uploader->request_email_code(email);
+	auth_status->set_text("[color=cyan]Sending code to " + email + "...[/color]");
+}
+
+void ModIOMainScreen::_on_verify_code() {
+	String code = code_input->get_text().strip_edges();
+	if (code.is_empty()) {
+		auth_status->set_text("[color=red]Enter the security code from your email.[/color]");
+		return;
+	}
+
+	ModIOUploader *uploader = ModIOUploader::get_singleton();
+	if (!uploader) {
+		return;
+	}
+
+	uploader->exchange_email_code(code);
+	auth_status->set_text("[color=cyan]Verifying code...[/color]");
+}
+
+void ModIOMainScreen::_update_locked_state() {
+	ModIOUploader *uploader = ModIOUploader::get_singleton();
+	bool logged_in = uploader && uploader->is_authenticated();
+
+	// Lock/unlock Create UGC and Upload sections.
+	if (create_section) {
+		for (int i = 0; i < create_section->get_child_count(); i++) {
+			Control *c = Object::cast_to<Control>(create_section->get_child(i));
+			if (c) {
+				c->set_modulate(logged_in ? Color(1, 1, 1, 1) : Color(1, 1, 1, 0.3));
+			}
+		}
+	}
+	if (upload_section) {
+		for (int i = 0; i < upload_section->get_child_count(); i++) {
+			Control *c = Object::cast_to<Control>(upload_section->get_child(i));
+			if (c) {
+				c->set_modulate(logged_in ? Color(1, 1, 1, 1) : Color(1, 1, 1, 0.3));
+			}
+		}
+	}
+
+	if (validate_btn) {
+		validate_btn->set_disabled(!logged_in);
+	}
+	if (upload_btn) {
+		upload_btn->set_disabled(!logged_in);
+	}
 }
 
 void ModIOMainScreen::_on_validate() {
@@ -406,6 +493,7 @@ void ModIOMainScreen::_on_upload() {
 
 void ModIOMainScreen::_on_authenticated() {
 	auth_status->set_text("[color=green]Logged in to mod.io[/color]");
+	_update_locked_state();
 }
 
 void ModIOMainScreen::_on_status_changed(int p_status, const String &p_message) {
@@ -425,6 +513,7 @@ void ModIOMainScreen::refresh() {
 	if (uploader && uploader->is_authenticated()) {
 		auth_status->set_text("[color=green]Logged in to mod.io[/color]");
 	}
+	_update_locked_state();
 }
 
 // ===========================================================

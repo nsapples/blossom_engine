@@ -31,9 +31,8 @@ private:
 	static ModIOUploader *singleton;
 
 	static constexpr int BLOSSOM_GAME_ID = 11342;
-	static constexpr const char *BLOSSOM_CLIENT_ID = "54590466";
-	static constexpr int OAUTH_CALLBACK_PORT = 34567;
 	String api_base_url = "https://api.mod.io/v1";
+	String api_key; // Read from env var MODIO_API_KEY or project setting.
 	String access_token;
 	UploadStatus status = STATUS_IDLE;
 	String status_message;
@@ -45,27 +44,22 @@ private:
 	String pending_mod_summary;
 	String pending_pck_path;
 
-	// OAuth state.
-	String oauth_code_verifier;
-	String oauth_state;
-
 	HTTPRequest *http = nullptr;
 
 	enum RequestType {
 		REQ_NONE,
-		REQ_OAUTH_TOKEN,
+		REQ_EMAIL_REQUEST,
+		REQ_EMAIL_EXCHANGE,
 		REQ_CREATE_MOD,
 		REQ_UPLOAD_FILE,
 	};
 	RequestType current_request = REQ_NONE;
 	int pending_mod_id = 0;
 
-	String _generate_code_verifier() const;
-	String _generate_code_challenge(const String &p_verifier) const;
-	String _generate_state() const;
-
+	void _load_api_key();
 	void _http_completed(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body);
-	void _on_oauth_token_complete(int p_response_code, const String &p_body);
+	void _on_email_request_complete(int p_response_code, const String &p_body);
+	void _on_email_exchange_complete(int p_response_code, const String &p_body);
 	void _on_create_mod_complete(int p_response_code, const String &p_body);
 	void _on_upload_file_complete(int p_response_code, const String &p_body);
 
@@ -75,9 +69,10 @@ protected:
 public:
 	static ModIOUploader *get_singleton();
 
-	// Auth flow: OAuth browser login.
-	void login_with_browser();
-	void handle_oauth_callback(const String &p_code);
+	// Auth flow: email-based.
+	void request_email_code(const String &p_email);
+	void exchange_email_code(const String &p_security_code);
+	bool has_api_key() const;
 	bool is_authenticated() const;
 	void set_access_token(const String &p_token);
 	String get_access_token() const;

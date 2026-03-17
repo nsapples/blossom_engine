@@ -211,6 +211,8 @@ void ModIOUploader::_http_completed(int p_result, int p_response_code, const Pac
 		body_str = String::utf8((const char *)r, p_body.size());
 	}
 
+	print_line(vformat("[ModIO] HTTP response (req=%d, code=%d): %s", (int)current_request, p_response_code, body_str));
+
 	switch (current_request) {
 		case REQ_EMAIL_REQUEST:
 			_on_email_request_complete(p_response_code, body_str);

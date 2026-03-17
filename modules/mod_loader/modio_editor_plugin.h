@@ -47,15 +47,16 @@ class ModIOMainScreen : public Control {
 
 	// Upload UI.
 	VBoxContainer *upload_section = nullptr;
-	LineEdit *mod_path_input = nullptr;
-	LineEdit *mod_name_input = nullptr;
-	TextEdit *mod_summary_input = nullptr;
+	OptionButton *ugc_select_dropdown = nullptr;
 	Button *validate_btn = nullptr;
 	Button *upload_btn = nullptr;
 	RichTextLabel *upload_status = nullptr;
 
 	// Validation results.
 	RichTextLabel *validation_results = nullptr;
+
+	// Discovered UGC paths.
+	PackedStringArray discovered_ugc_paths;
 
 	void _build_ui();
 	void _build_create_section(VBoxContainer *p_root);
@@ -65,6 +66,9 @@ class ModIOMainScreen : public Control {
 	void _on_create_ugc();
 	void _on_create_mod_response(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body);
 	int pending_ugc_type = 0;
+
+	void _scan_ugc_projects();
+	String _get_selected_ugc_path() const;
 	void _on_send_code();
 	void _on_verify_code();
 	void _update_locked_state();

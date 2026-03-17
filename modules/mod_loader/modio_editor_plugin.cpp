@@ -15,6 +15,7 @@
 #include "core/config/project_settings.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
+#include "core/io/config_file.h"
 #include "core/io/json.h"
 #include "core/os/os.h"
 #include "core/object/callable_mp.h"
@@ -58,7 +59,7 @@ void ModIOMainScreen::_build_ui() {
 
 	// Title.
 	Label *title = memnew(Label);
-	title->set_text("User Generated Content");
+	title->set_text("UGC Workshop");
 	title->add_theme_font_size_override("font_size", 22);
 	root->add_child(title);
 
@@ -256,6 +257,8 @@ void ModIOMainScreen::_on_create_ugc() {
 	headers.push_back("Authorization: Bearer " + uploader->get_access_token());
 	headers.push_back("Content-Type: multipart/form-data; boundary=" + boundary);
 
+	print_line(vformat("[ModIO] Creating mod: name='%s', summary='%s', type='%s', logo='%s'", mod_name, mod_summary, type_tag, logo_path));
+	print_line(vformat("[ModIO] POST %s (body size: %d bytes)", url, body.size()));
 	create_http->request_raw(url, headers, HTTPClient::METHOD_POST, body);
 }
 
@@ -266,7 +269,10 @@ void ModIOMainScreen::_on_create_mod_response(int p_result, int p_response_code,
 		body_str = String::utf8((const char *)r, p_body.size());
 	}
 
+	print_line(vformat("[ModIO] Create mod response (%d): %s", p_response_code, body_str));
+
 	if (p_response_code != 201 && p_response_code != 200) {
+		print_line(vformat("[ModIO] ERROR: Create mod failed (%d): %s", p_response_code, body_str));
 		create_status->set_text(vformat("[color=red]Failed to create mod on mod.io (%d): %s[/color]", p_response_code, body_str));
 		return;
 	}
@@ -335,9 +341,8 @@ void ModIOMainScreen::_on_create_mod_response(int p_result, int p_response_code,
 		sf->store_string(script_content);
 	}
 
-	// Auto-fill upload fields.
-	mod_path_input->set_text(base_path);
-	mod_name_input->set_text(mod_name);
+	// Refresh the UGC dropdown.
+	_scan_ugc_projects();
 
 	create_status->set_text(vformat("[color=green]Created UGC project:[/color] %s\n[color=cyan]mod.io ID:[/color] %d\n[color=cyan]Type:[/color] %s\n[color=cyan]Path:[/color] %s",
 			folder_name, mod_id, type_name, base_path));
@@ -410,53 +415,41 @@ void ModIOMainScreen::_build_upload_section(VBoxContainer *p_root) {
 	upload_section->add_theme_constant_override("separation", 6);
 
 	Label *header = memnew(Label);
-	header->set_text("Upload Mod");
+	header->set_text("Upload UGC");
 	header->add_theme_font_size_override("font_size", 18);
 	upload_section->add_child(header);
 
-	// Mod path.
-	HBoxContainer *path_row = memnew(HBoxContainer);
-	Label *path_label = memnew(Label);
-	path_label->set_text("Mod Folder:");
-	path_row->add_child(path_label);
-	mod_path_input = memnew(LineEdit);
-	mod_path_input->set_placeholder("res://mods/my_mod/");
-	mod_path_input->set_h_size_flags(SIZE_EXPAND_FILL);
-	path_row->add_child(mod_path_input);
-	upload_section->add_child(path_row);
+	// UGC project selector.
+	HBoxContainer *select_row = memnew(HBoxContainer);
+	select_row->add_theme_constant_override("separation", 6);
 
-	// Mod name.
-	HBoxContainer *name_row = memnew(HBoxContainer);
-	Label *name_label = memnew(Label);
-	name_label->set_text("Mod Name:");
-	name_row->add_child(name_label);
-	mod_name_input = memnew(LineEdit);
-	mod_name_input->set_placeholder("My Awesome Mod");
-	mod_name_input->set_h_size_flags(SIZE_EXPAND_FILL);
-	name_row->add_child(mod_name_input);
-	upload_section->add_child(name_row);
+	Label *select_label = memnew(Label);
+	select_label->set_text("UGC Project:");
+	select_row->add_child(select_label);
 
-	// Summary.
-	Label *summary_label = memnew(Label);
-	summary_label->set_text("Summary:");
-	upload_section->add_child(summary_label);
+	ugc_select_dropdown = memnew(OptionButton);
+	ugc_select_dropdown->set_h_size_flags(SIZE_EXPAND_FILL);
+	select_row->add_child(ugc_select_dropdown);
 
-	mod_summary_input = memnew(TextEdit);
-	mod_summary_input->set_placeholder("Describe your mod...");
-	mod_summary_input->set_custom_minimum_size(Size2(0, 80));
-	upload_section->add_child(mod_summary_input);
+	Button *scan_btn = memnew(Button);
+	scan_btn->set_text("Scan");
+	scan_btn->set_tooltip_text("Scan for UGC projects in res://ugc/");
+	scan_btn->connect("pressed", callable_mp(this, &ModIOMainScreen::_scan_ugc_projects));
+	select_row->add_child(scan_btn);
+
+	upload_section->add_child(select_row);
 
 	// Buttons.
 	HBoxContainer *btn_row = memnew(HBoxContainer);
 	btn_row->add_theme_constant_override("separation", 8);
 
 	validate_btn = memnew(Button);
-	validate_btn->set_text("Validate Mod");
+	validate_btn->set_text("Validate UGC");
 	validate_btn->connect("pressed", callable_mp(this, &ModIOMainScreen::_on_validate));
 	btn_row->add_child(validate_btn);
 
 	upload_btn = memnew(Button);
-	upload_btn->set_text("Upload to mod.io");
+	upload_btn->set_text("Upload UGC");
 	upload_btn->connect("pressed", callable_mp(this, &ModIOMainScreen::_on_upload));
 	btn_row->add_child(upload_btn);
 
@@ -554,10 +547,58 @@ void ModIOMainScreen::_update_locked_state() {
 	}
 }
 
+void ModIOMainScreen::_scan_ugc_projects() {
+	discovered_ugc_paths.clear();
+	ugc_select_dropdown->clear();
+
+	String ugc_base = ProjectSettings::get_singleton()->globalize_path("res://ugc");
+	Ref<DirAccess> da = DirAccess::open(ugc_base);
+	if (da.is_null()) {
+		upload_status->set_text("[color=yellow]No res://ugc/ folder found. Create a UGC project first.[/color]");
+		return;
+	}
+
+	// Scan type folders.
+	static const char *type_folders[] = { "level", "gamemode", "avatar", "gun", "misc", nullptr };
+	for (int t = 0; type_folders[t]; t++) {
+		String type_path = ugc_base.path_join(type_folders[t]);
+		Ref<DirAccess> type_da = DirAccess::open(type_path);
+		if (type_da.is_null()) {
+			continue;
+		}
+		type_da->list_dir_begin();
+		String entry = type_da->get_next();
+		while (!entry.is_empty()) {
+			if (entry != "." && entry != ".." && type_da->current_is_dir() && entry.begins_with("UGC_")) {
+				String full_path = "res://ugc/" + String(type_folders[t]) + "/" + entry;
+				String display = String(type_folders[t]).capitalize() + " - " + entry;
+				ugc_select_dropdown->add_item(display);
+				discovered_ugc_paths.push_back(full_path);
+			}
+			entry = type_da->get_next();
+		}
+		type_da->list_dir_end();
+	}
+
+	if (discovered_ugc_paths.is_empty()) {
+		upload_status->set_text("[color=yellow]No UGC projects found in res://ugc/[/color]");
+	} else {
+		upload_status->set_text(vformat("[color=green]Found %d UGC project(s).[/color]", discovered_ugc_paths.size()));
+	}
+}
+
+String ModIOMainScreen::_get_selected_ugc_path() const {
+	int idx = ugc_select_dropdown->get_selected();
+	if (idx >= 0 && idx < discovered_ugc_paths.size()) {
+		return discovered_ugc_paths[idx];
+	}
+	return "";
+}
+
 void ModIOMainScreen::_on_validate() {
-	String mod_path = mod_path_input->get_text().strip_edges();
-	if (mod_path.is_empty()) {
-		validation_results->set_text("[color=red]Enter a mod folder path.[/color]");
+	String ugc_path = _get_selected_ugc_path();
+	if (ugc_path.is_empty()) {
+		validation_results->set_text("[color=red]Select a UGC project first.[/color]");
 		return;
 	}
 
@@ -566,7 +607,8 @@ void ModIOMainScreen::_on_validate() {
 		return;
 	}
 
-	Dictionary result = validator->validate_mod(mod_path);
+	String abs_path = ProjectSettings::get_singleton()->globalize_path(ugc_path);
+	Dictionary result = validator->validate_mod(abs_path);
 	bool passed = result["passed"];
 	PackedStringArray errors = result["errors"];
 	PackedStringArray warnings = result["warnings"];
@@ -574,9 +616,9 @@ void ModIOMainScreen::_on_validate() {
 
 	String text;
 	if (passed) {
-		text = vformat("[color=green]PASSED[/color] — %d scripts checked.\n", checked);
+		text = vformat("[color=green]PASSED[/color] - %d scripts checked.\n", checked);
 	} else {
-		text = vformat("[color=red]FAILED[/color] — %d scripts checked.\n\n", checked);
+		text = vformat("[color=red]FAILED[/color] - %d scripts checked.\n\n", checked);
 	}
 
 	for (const String &err : errors) {
@@ -600,26 +642,33 @@ void ModIOMainScreen::_on_upload() {
 		return;
 	}
 
-	String mod_path = mod_path_input->get_text().strip_edges();
-	String mod_name = mod_name_input->get_text().strip_edges();
-	String summary = mod_summary_input->get_text().strip_edges();
-
-	if (mod_path.is_empty() || mod_name.is_empty() || summary.is_empty()) {
-		upload_status->set_text("[color=red]Fill in all fields.[/color]");
+	String ugc_path = _get_selected_ugc_path();
+	if (ugc_path.is_empty()) {
+		upload_status->set_text("[color=red]Select a UGC project first.[/color]");
 		return;
+	}
+
+	// Read mod.cfg for name.
+	String abs_path = ProjectSettings::get_singleton()->globalize_path(ugc_path);
+	String cfg_path = abs_path.path_join("mod.cfg");
+	Ref<ConfigFile> cfg;
+	cfg.instantiate();
+	String mod_name = ugc_path.get_file();
+	String mod_summary = "";
+	if (cfg->load(cfg_path) == OK) {
+		mod_name = cfg->get_value("mod", "name", mod_name);
+		mod_summary = cfg->get_value("mod", "description", "");
 	}
 
 	uploader->set_http_node(http);
 
-	// Connect signals if not already.
-	if (!uploader->is_connected("authenticated", callable_mp(this, &ModIOMainScreen::_on_authenticated))) {
-		uploader->connect("authenticated", callable_mp(this, &ModIOMainScreen::_on_authenticated));
+	if (!uploader->is_connected("upload_completed", callable_mp(this, &ModIOMainScreen::_on_upload_completed))) {
 		uploader->connect("status_changed", callable_mp(this, &ModIOMainScreen::_on_status_changed));
 		uploader->connect("upload_completed", callable_mp(this, &ModIOMainScreen::_on_upload_completed));
 		uploader->connect("upload_failed", callable_mp(this, &ModIOMainScreen::_on_upload_failed));
 	}
 
-	uploader->upload_mod(mod_path, mod_name, summary);
+	uploader->upload_mod(abs_path, mod_name, mod_summary.is_empty() ? mod_name : mod_summary);
 }
 
 void ModIOMainScreen::_on_authenticated() {
@@ -644,6 +693,7 @@ void ModIOMainScreen::refresh() {
 	if (uploader && uploader->is_authenticated()) {
 		auth_status->set_text("[color=green]Logged in to mod.io[/color]");
 	}
+	_scan_ugc_projects();
 	_update_locked_state();
 }
 

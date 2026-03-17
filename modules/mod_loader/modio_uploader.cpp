@@ -357,17 +357,12 @@ void ModIOUploader::_on_upload_file_complete(int p_response_code, const String &
 		current_request = REQ_SET_VISIBLE;
 
 		String url = vformat("%s/games/%d/mods/%d", api_base_url, BLOSSOM_GAME_ID, pending_mod_id);
-		String boundary = "----BlossomVis" + String::num_int64(OS::get_singleton()->get_ticks_msec());
-
-		PackedByteArray vis_body;
-		String field = vformat("--%s\r\nContent-Disposition: form-data; name=\"visible\"\r\n\r\n1\r\n--%s--\r\n", boundary, boundary);
-		vis_body.append_array(field.to_utf8_buffer());
 
 		PackedStringArray vis_headers;
 		vis_headers.push_back("Authorization: Bearer " + access_token);
-		vis_headers.push_back("Content-Type: multipart/form-data; boundary=" + boundary);
+		vis_headers.push_back("Content-Type: application/x-www-form-urlencoded");
 
-		http->request_raw(url, vis_headers, HTTPClient::METHOD_PUT, vis_body);
+		http->request(url, vis_headers, HTTPClient::METHOD_PUT, "visible=1");
 		return;
 	} else {
 		last_error = vformat("File upload failed (%d): %s", p_response_code, p_body);

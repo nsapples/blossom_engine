@@ -31,6 +31,7 @@
 #include "renderer_scene_cull.h"
 
 #include "core/config/engine.h"
+#include "servers/rendering/renderer_scene_occlusion_cull_auto.h"
 #include "core/config/project_settings.h"
 #include "core/math/geometry_3d.h"
 #include "core/object/callable_mp.h"
@@ -3332,6 +3333,10 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 		cull_data.visible_layers = p_visible_layers;
 		cull_data.render_reflection_probe = render_reflection_probe;
 		cull_data.occlusion_buffer = RendererSceneOcclusionCull::get_singleton()->buffer_get_ptr(p_viewport);
+		// Fall back to automatic GPU-based occlusion if no manual occluders.
+		if (!cull_data.occlusion_buffer && RendererSceneAutoOcclusionCull::get_singleton()) {
+			cull_data.occlusion_buffer = RendererSceneAutoOcclusionCull::get_singleton()->get_buffer();
+		}
 		cull_data.camera_matrix = &p_camera_data->main_projection;
 		cull_data.visibility_viewport_mask = scenario->viewport_visibility_masks.has(p_viewport) ? scenario->viewport_visibility_masks[p_viewport] : 0;
 //#define DEBUG_CULL_TIME
@@ -4390,6 +4395,12 @@ RendererSceneCull::RendererSceneCull() {
 
 	dummy_occlusion_culling = memnew(RendererSceneOcclusionCull);
 
+	// Initialize automatic GPU occlusion culling.
+	if (!RendererSceneAutoOcclusionCull::get_singleton()) {
+		RendererSceneAutoOcclusionCull *auto_occ = memnew(RendererSceneAutoOcclusionCull);
+		auto_occ->set_enabled(GLOBAL_DEF("rendering/occlusion_culling/auto_gpu_occlusion", true));
+	}
+
 	light_culler = memnew(RenderingLightCuller);
 
 	bool tighter_caster_culling = GLOBAL_DEF("rendering/lights_and_shadows/tighter_shadow_caster_culling", true);
@@ -4416,6 +4427,10 @@ RendererSceneCull::~RendererSceneCull() {
 
 	if (dummy_occlusion_culling) {
 		memdelete(dummy_occlusion_culling);
+	}
+
+	if (RendererSceneAutoOcclusionCull::get_singleton()) {
+		memdelete(RendererSceneAutoOcclusionCull::get_singleton());
 	}
 
 	if (light_culler) {

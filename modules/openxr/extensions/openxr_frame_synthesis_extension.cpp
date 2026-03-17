@@ -192,16 +192,8 @@ void OpenXRFrameSynthesisExtension::on_main_swapchains_created() {
 		swapchain_format = GL_RGBA16F;
 		depth_swapchain_format = GL_DEPTH24_STENCIL8;
 	} else if (rendering_driver_name == "vulkan") {
-		String rendering_method = rendering_server->get_current_rendering_method();
-		if (rendering_method == "mobile") {
-			swapchain_format = VK_FORMAT_R16G16B16A16_SFLOAT;
-			depth_swapchain_format = VK_FORMAT_D24_UNORM_S8_UINT;
-		} else {
-			WARN_PRINT("OpenXR: Frame synthesis not supported for this rendering method!");
-			frame_synthesis_ext = false;
-			openxr_api->unregister_projection_views_extension(this);
-			return;
-		}
+		swapchain_format = VK_FORMAT_R16G16B16A16_SFLOAT;
+		depth_swapchain_format = VK_FORMAT_D24_UNORM_S8_UINT;
 	} else {
 		WARN_PRINT("OpenXR: Frame synthesis not supported for this rendering driver!");
 		frame_synthesis_ext = false;
@@ -234,8 +226,8 @@ void OpenXRFrameSynthesisExtension::on_main_swapchains_created() {
 		frame_synthesis_info.motionVectorSubImage.imageRect.extent.width = width;
 		frame_synthesis_info.motionVectorSubImage.imageRect.extent.height = height;
 
-		// Q: this should be 1.0, -1.0, 1.0. We output OpenGL NDC, frame synthesis expects Vulkan NDC, but might be a problem on runtime I'm testing.
-		frame_synthesis_info.motionVectorScale = { 1.0, 1.0, 1.0, 0.0 };
+		// Invert Y axis: renderer outputs OpenGL NDC, frame synthesis expects Vulkan NDC.
+		frame_synthesis_info.motionVectorScale = { 1.0, -1.0, 1.0, 0.0 };
 		frame_synthesis_info.motionVectorOffset = { 0.0, 0.0, 0.0, 0.0 };
 		frame_synthesis_info.appSpaceDeltaPose = { { 0.0, 0.0, 0.0, 1.0 }, { 0.0, 0.0, 0.0 } };
 

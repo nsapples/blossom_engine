@@ -31,6 +31,7 @@
 #include "render_forward_clustered.h"
 
 #include "core/config/project_settings.h"
+#include "servers/rendering/renderer_scene_occlusion_cull_auto.h"
 #include "servers/rendering/renderer_rd/environment/fog.h"
 #include "servers/rendering/renderer_rd/framebuffer_cache_rd.h"
 #include "servers/rendering/renderer_rd/storage_rd/light_storage.h"
@@ -2131,6 +2132,16 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 				}
 			}
 			RD::get_singleton()->draw_command_end_label();
+		}
+
+		// Auto occlusion culling: read back depth for next frame's culling.
+		if (RendererSceneAutoOcclusionCull::get_singleton() && RendererSceneAutoOcclusionCull::get_singleton()->is_enabled()) {
+			RID depth_tex = rb->get_depth_texture(0);
+			if (depth_tex.is_valid()) {
+				Size2i depth_size = rb->get_internal_size();
+				// Use async readback to avoid GPU stall.
+				RD::get_singleton()->texture_get_data_async(depth_tex, 0, callable_mp(RendererSceneAutoOcclusionCull::get_singleton(), &RendererSceneAutoOcclusionCull::_on_depth_readback).bind(depth_size));
+			}
 		}
 	}
 

@@ -31,8 +31,8 @@ private:
 	static ModIOUploader *singleton;
 
 	static constexpr int BLOSSOM_GAME_ID = 11342;
+	static constexpr const char *BLOSSOM_API_KEY = "c98fd7bfca1466522e70876eaff61751";
 	String api_base_url = "https://api.mod.io/v1";
-	String api_key; // Read from env var MODIO_API_KEY or project setting.
 	String access_token;
 	UploadStatus status = STATUS_IDLE;
 	String status_message;
@@ -56,7 +56,6 @@ private:
 	RequestType current_request = REQ_NONE;
 	int pending_mod_id = 0;
 
-	void _load_api_key();
 	void _http_completed(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body);
 	void _on_email_request_complete(int p_response_code, const String &p_body);
 	void _on_email_exchange_complete(int p_response_code, const String &p_body);

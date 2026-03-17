@@ -30,29 +30,8 @@ ModIOUploader *ModIOUploader::get_singleton() {
 //  Auth: email-based
 // ===========================================================
 
-void ModIOUploader::_load_api_key() {
-	// Try environment variable first.
-	if (OS::get_singleton()->has_environment("MODIO_API_KEY")) {
-		api_key = OS::get_singleton()->get_environment("MODIO_API_KEY");
-		return;
-	}
-	// Try project setting.
-	if (ProjectSettings::get_singleton()->has_setting("modio/api_key")) {
-		api_key = GLOBAL_GET("modio/api_key");
-		return;
-	}
-	// Try local file.
-	String key_path = ProjectSettings::get_singleton()->globalize_path("res://.modio_key");
-	if (FileAccess::exists(key_path)) {
-		Ref<FileAccess> f = FileAccess::open(key_path, FileAccess::READ);
-		if (f.is_valid()) {
-			api_key = f->get_as_text().strip_edges();
-		}
-	}
-}
-
 bool ModIOUploader::has_api_key() const {
-	return !api_key.is_empty();
+	return true; // Hardcoded.
 }
 
 void ModIOUploader::request_email_code(const String &p_email) {
@@ -62,19 +41,11 @@ void ModIOUploader::request_email_code(const String &p_email) {
 		return;
 	}
 
-	_load_api_key();
-	if (api_key.is_empty()) {
-		last_error = "No mod.io API key found. Set MODIO_API_KEY env var or create res://.modio_key file.";
-		status = STATUS_ERROR;
-		emit_signal("upload_failed", last_error);
-		return;
-	}
-
 	status = STATUS_AUTHENTICATING;
 	status_message = "Sending security code to " + p_email + "...";
 	current_request = REQ_EMAIL_REQUEST;
 
-	String url = vformat("%s/oauth/emailrequest?api_key=%s", api_base_url, api_key);
+	String url = vformat("%s/oauth/emailrequest?api_key=%s", api_base_url, BLOSSOM_API_KEY);
 	PackedStringArray headers;
 	headers.push_back("Content-Type: application/x-www-form-urlencoded");
 
@@ -93,7 +64,7 @@ void ModIOUploader::exchange_email_code(const String &p_security_code) {
 	status_message = "Verifying security code...";
 	current_request = REQ_EMAIL_EXCHANGE;
 
-	String url = vformat("%s/oauth/emailexchange?api_key=%s", api_base_url, api_key);
+	String url = vformat("%s/oauth/emailexchange?api_key=%s", api_base_url, BLOSSOM_API_KEY);
 	PackedStringArray headers;
 	headers.push_back("Content-Type: application/x-www-form-urlencoded");
 

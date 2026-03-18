@@ -340,7 +340,6 @@
 #ifndef PHYSICS_3D_DISABLED
 #include "scene/3d/physics/animatable_body_3d.h"
 #include "scene/3d/physics/ballistic_body_3d.h"
-#include "scene/3d/physics/bullet_pool.h"
 #include "scene/3d/physics/area_3d.h"
 #include "scene/3d/physics/character_body_3d.h"
 #include "scene/3d/physics/collision_polygon_3d.h"
@@ -738,7 +737,6 @@ void register_scene_types() {
 
 #ifndef PHYSICS_3D_DISABLED
 	GDREGISTER_CLASS(BallisticBody3D);
-	GDREGISTER_CLASS(BulletPool);
 	GDREGISTER_CLASS(VehicleBody3D);
 	GDREGISTER_CLASS(VehicleWheel3D);
 	GDREGISTER_CLASS(Area3D);

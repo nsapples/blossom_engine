@@ -147,6 +147,16 @@ void BallisticBody3D::_handle_impact(PhysicsDirectBodyState3D *p_state, const Re
 
 void BallisticBody3D::_body_state_changed(PhysicsDirectBodyState3D *p_state) {
 	RigidBody3D::_body_state_changed(p_state);
+
+	// Auto despawn.
+	if (auto_despawn_time > 0.0 && ballistic_state == STATE_FLYING) {
+		time_alive += p_state->get_step();
+		if (time_alive >= auto_despawn_time) {
+			queue_free();
+			return;
+		}
+	}
+
 	_perform_raycast(p_state);
 }
 
@@ -164,6 +174,14 @@ void BallisticBody3D::set_raycast_margin(real_t p_margin) {
 
 real_t BallisticBody3D::get_raycast_margin() const {
 	return raycast_margin;
+}
+
+void BallisticBody3D::set_auto_despawn_time(real_t p_time) {
+	auto_despawn_time = MAX(0.0, p_time);
+}
+
+real_t BallisticBody3D::get_auto_despawn_time() const {
+	return auto_despawn_time;
 }
 
 BallisticBody3D::BallisticState BallisticBody3D::get_ballistic_state() const {
@@ -189,9 +207,13 @@ void BallisticBody3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_hit_position"), &BallisticBody3D::get_hit_position);
 	ClassDB::bind_method(D_METHOD("get_hit_normal"), &BallisticBody3D::get_hit_normal);
 
+	ClassDB::bind_method(D_METHOD("set_auto_despawn_time", "time"), &BallisticBody3D::set_auto_despawn_time);
+	ClassDB::bind_method(D_METHOD("get_auto_despawn_time"), &BallisticBody3D::get_auto_despawn_time);
+
 	ADD_GROUP("Ballistics", "");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "penetration_power", PROPERTY_HINT_RANGE, "0,100,0.01"), "set_penetration_power", "get_penetration_power");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "raycast_margin", PROPERTY_HINT_RANGE, "0,1,0.001"), "set_raycast_margin", "get_raycast_margin");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "auto_despawn_time", PROPERTY_HINT_RANGE, "0,60,0.1,suffix:s"), "set_auto_despawn_time", "get_auto_despawn_time");
 
 	ADD_SIGNAL(MethodInfo("hit", PropertyInfo(Variant::VECTOR3, "position"), PropertyInfo(Variant::VECTOR3, "normal")));
 	ADD_SIGNAL(MethodInfo("penetrated", PropertyInfo(Variant::VECTOR3, "position"), PropertyInfo(Variant::VECTOR3, "normal")));

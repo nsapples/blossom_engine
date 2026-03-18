@@ -34,6 +34,8 @@ private:
 	// Projectile properties.
 	real_t penetration_power = 1.0;
 	real_t raycast_margin = 0.01;
+	real_t auto_despawn_time = 0.0; // 0 = no auto despawn.
+	real_t time_alive = 0.0;
 
 	void _perform_raycast(PhysicsDirectBodyState3D *p_state);
 	void _handle_impact(PhysicsDirectBodyState3D *p_state, const Ref<PhysicsMaterial> &p_material);
@@ -48,6 +50,9 @@ public:
 
 	void set_raycast_margin(real_t p_margin);
 	real_t get_raycast_margin() const;
+
+	void set_auto_despawn_time(real_t p_time);
+	real_t get_auto_despawn_time() const;
 
 	BallisticState get_ballistic_state() const;
 	Vector3 get_hit_position() const;

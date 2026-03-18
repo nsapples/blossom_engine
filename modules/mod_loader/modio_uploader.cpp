@@ -290,6 +290,7 @@ void ModIOUploader::upload_mod(const String &p_mod_path, const String &p_name, c
 	add_field("version", mod_version);
 	add_field("changelog", "Uploaded from Blossom Engine");
 	add_field("active", "true");
+	add_field("platforms[]", "source");
 
 	// End boundary.
 	String footer = "--" + b + "--\r\n";

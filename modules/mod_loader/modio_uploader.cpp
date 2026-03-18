@@ -262,12 +262,31 @@ void ModIOUploader::upload_mod(const String &p_mod_path, const String &p_name, c
 	String boundary = "----BlossomUpload" + String::num_int64(OS::get_singleton()->get_ticks_msec());
 	String file_name = pending_pck_path.get_file();
 
-	PackedByteArray body;
-	String part_header = vformat("--%s\r\nContent-Disposition: form-data; name=\"filedata\"; filename=\"%s\"\r\nContent-Type: application/zip\r\n\r\n", boundary, file_name);
-	String part_footer = vformat("\r\n--%s--\r\n", boundary);
+	// Read version from mod.cfg.
+	String mod_version = "1.0.0";
+	Ref<ConfigFile> ver_cfg;
+	ver_cfg.instantiate();
+	if (ver_cfg->load(p_mod_path.path_join("mod.cfg")) == OK) {
+		mod_version = ver_cfg->get_value("mod", "version", "1.0.0");
+	}
 
+	PackedByteArray body;
+	auto add_text_field = [&](const String &p_fname, const String &p_value) {
+		String part = vformat("--%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s\r\n", boundary, p_fname, p_value);
+		body.append_array(part.to_utf8_buffer());
+	};
+
+	add_text_field("version", mod_version);
+	add_text_field("changelog", "Uploaded from Blossom Engine");
+	add_text_field("active", "true");
+
+	// Add the zip file.
+	String part_header = vformat("--%s\r\nContent-Disposition: form-data; name=\"filedata\"; filename=\"%s\"\r\nContent-Type: application/zip\r\n\r\n", boundary, file_name);
 	body.append_array(part_header.to_utf8_buffer());
 	body.append_array(file_data);
+	body.append_array(String("\r\n").to_utf8_buffer());
+
+	String part_footer = vformat("--%s--\r\n", boundary);
 	body.append_array(part_footer.to_utf8_buffer());
 
 	String url = vformat("%s/games/%d/mods/%d/files", api_base_url, BLOSSOM_GAME_ID, pending_mod_id);

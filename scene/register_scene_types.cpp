@@ -224,7 +224,6 @@
 
 #ifndef _3D_DISABLED
 #include "scene/3d/aim_modifier_3d.h"
-#include "scene/3d/auto_lod.h"
 #include "scene/3d/audio_listener_3d.h"
 #include "scene/3d/debug_ray_draw.h"
 #include "scene/3d/audio_stream_player_3d.h"
@@ -747,7 +746,6 @@ void register_scene_types() {
 	GDREGISTER_CLASS(ShapeCast3D);
 #endif // PHYSICS_3D_DISABLED
 	GDREGISTER_CLASS(MultiMeshInstance3D);
-	GDREGISTER_CLASS(AutoLOD);
 
 	GDREGISTER_CLASS(Curve3D);
 	GDREGISTER_CLASS(Path3D);

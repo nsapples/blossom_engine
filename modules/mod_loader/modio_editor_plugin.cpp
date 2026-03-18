@@ -38,13 +38,24 @@ ModIOMainScreen::ModIOMainScreen() {
 	_build_ui();
 }
 
+static PanelContainer *_make_panel() {
+	PanelContainer *panel = memnew(PanelContainer);
+	Ref<StyleBoxFlat> style;
+	style.instantiate();
+	style->set_bg_color(Color(0.12, 0.12, 0.16, 1.0));
+	style->set_corner_radius_all(6);
+	style->set_content_margin_all(14);
+	panel->add_theme_style_override("panel", style);
+	return panel;
+}
+
 void ModIOMainScreen::_build_ui() {
 	MarginContainer *margin = memnew(MarginContainer);
 	margin->set_anchors_and_offsets_preset(PRESET_FULL_RECT);
-	margin->add_theme_constant_override("margin_left", 16);
-	margin->add_theme_constant_override("margin_right", 16);
-	margin->add_theme_constant_override("margin_top", 12);
-	margin->add_theme_constant_override("margin_bottom", 12);
+	margin->add_theme_constant_override("margin_left", 24);
+	margin->add_theme_constant_override("margin_right", 24);
+	margin->add_theme_constant_override("margin_top", 16);
+	margin->add_theme_constant_override("margin_bottom", 16);
 	add_child(margin);
 
 	ScrollContainer *scroll = memnew(ScrollContainer);
@@ -54,20 +65,37 @@ void ModIOMainScreen::_build_ui() {
 
 	VBoxContainer *root = memnew(VBoxContainer);
 	root->set_h_size_flags(SIZE_EXPAND_FILL);
-	root->add_theme_constant_override("separation", 12);
+	root->add_theme_constant_override("separation", 16);
 	scroll->add_child(root);
 
 	// Title.
 	Label *title = memnew(Label);
 	title->set_text("UGC Workshop");
-	title->add_theme_font_size_override("font_size", 22);
+	title->add_theme_font_size_override("font_size", 24);
 	root->add_child(title);
 
-	_build_create_section(root);
-	root->add_child(memnew(HSeparator));
+	// Auth first — everything else is locked until logged in.
 	_build_auth_section(root);
-	root->add_child(memnew(HSeparator));
-	_build_upload_section(root);
+
+	// Two-column layout for Create and Upload.
+	HBoxContainer *columns = memnew(HBoxContainer);
+	columns->add_theme_constant_override("separation", 16);
+	columns->set_h_size_flags(SIZE_EXPAND_FILL);
+	root->add_child(columns);
+
+	VBoxContainer *left_col = memnew(VBoxContainer);
+	left_col->set_h_size_flags(SIZE_EXPAND_FILL);
+	left_col->add_theme_constant_override("separation", 12);
+	columns->add_child(left_col);
+
+	VBoxContainer *right_col = memnew(VBoxContainer);
+	right_col->set_h_size_flags(SIZE_EXPAND_FILL);
+	right_col->add_theme_constant_override("separation", 12);
+	columns->add_child(right_col);
+
+	_build_create_section(left_col);
+	_build_upload_section(right_col);
+	_build_dep_section(root);
 
 	// HTTP node for uploader.
 	http = memnew(HTTPRequest);
@@ -76,12 +104,16 @@ void ModIOMainScreen::_build_ui() {
 }
 
 void ModIOMainScreen::_build_create_section(VBoxContainer *p_root) {
+	PanelContainer *panel = _make_panel();
+	p_root->add_child(panel);
+
 	create_section = memnew(VBoxContainer);
-	create_section->add_theme_constant_override("separation", 6);
+	create_section->add_theme_constant_override("separation", 8);
+	panel->add_child(create_section);
 
 	Label *header = memnew(Label);
 	header->set_text("Create UGC");
-	header->add_theme_font_size_override("font_size", 18);
+	header->add_theme_font_size_override("font_size", 16);
 	create_section->add_child(header);
 
 	// UGC Type.
@@ -161,8 +193,6 @@ void ModIOMainScreen::_build_create_section(VBoxContainer *p_root) {
 	create_status->set_fit_content(true);
 	create_status->set_scroll_active(false);
 	create_section->add_child(create_status);
-
-	p_root->add_child(create_section);
 }
 
 void ModIOMainScreen::_on_create_ugc() {
@@ -352,12 +382,16 @@ void ModIOMainScreen::_on_create_mod_response(int p_result, int p_response_code,
 }
 
 void ModIOMainScreen::_build_auth_section(VBoxContainer *p_root) {
+	PanelContainer *panel = _make_panel();
+	p_root->add_child(panel);
+
 	auth_section = memnew(VBoxContainer);
-	auth_section->add_theme_constant_override("separation", 6);
+	auth_section->add_theme_constant_override("separation", 8);
+	panel->add_child(auth_section);
 
 	Label *header = memnew(Label);
-	header->set_text("Authentication");
-	header->add_theme_font_size_override("font_size", 18);
+	header->set_text("mod.io Account");
+	header->add_theme_font_size_override("font_size", 16);
 	auth_section->add_child(header);
 
 	auth_status = memnew(RichTextLabel);
@@ -406,17 +440,19 @@ void ModIOMainScreen::_build_auth_section(VBoxContainer *p_root) {
 	code_row->add_child(verify_btn);
 
 	auth_section->add_child(code_row);
-
-	p_root->add_child(auth_section);
 }
 
 void ModIOMainScreen::_build_upload_section(VBoxContainer *p_root) {
+	PanelContainer *panel = _make_panel();
+	p_root->add_child(panel);
+
 	upload_section = memnew(VBoxContainer);
-	upload_section->add_theme_constant_override("separation", 6);
+	upload_section->add_theme_constant_override("separation", 8);
+	panel->add_child(upload_section);
 
 	Label *header = memnew(Label);
 	header->set_text("Upload UGC");
-	header->add_theme_font_size_override("font_size", 18);
+	header->add_theme_font_size_override("font_size", 16);
 	upload_section->add_child(header);
 
 	// UGC project selector.
@@ -469,8 +505,6 @@ void ModIOMainScreen::_build_upload_section(VBoxContainer *p_root) {
 	validation_results->set_scroll_active(false);
 	validation_results->set_custom_minimum_size(Size2(0, 100));
 	upload_section->add_child(validation_results);
-
-	p_root->add_child(upload_section);
 }
 
 // ===========================================================
@@ -545,6 +579,343 @@ void ModIOMainScreen::_update_locked_state() {
 	if (upload_btn) {
 		upload_btn->set_disabled(!logged_in);
 	}
+}
+
+// ===========================================================
+//  Dependency Browser
+// ===========================================================
+
+void ModIOMainScreen::_build_dep_section(VBoxContainer *p_root) {
+	PanelContainer *panel = _make_panel();
+	p_root->add_child(panel);
+
+	dep_section = memnew(VBoxContainer);
+	dep_section->add_theme_constant_override("separation", 8);
+	panel->add_child(dep_section);
+
+	Label *header = memnew(Label);
+	header->set_text("Dependencies");
+	header->add_theme_font_size_override("font_size", 16);
+	dep_section->add_child(header);
+
+	// Current dependencies list.
+	Label *current_label = memnew(Label);
+	current_label->set_text("Current Dependencies:");
+	dep_section->add_child(current_label);
+
+	dep_list = memnew(VBoxContainer);
+	dep_list->add_theme_constant_override("separation", 4);
+	dep_section->add_child(dep_list);
+
+	// Load dependencies button.
+	Button *load_btn = memnew(Button);
+	load_btn->set_text("Load Dependencies");
+	load_btn->connect("pressed", callable_mp(this, &ModIOMainScreen::_on_dep_load));
+	dep_section->add_child(load_btn);
+
+	dep_section->add_child(memnew(HSeparator));
+
+	// Search.
+	Label *search_label = memnew(Label);
+	search_label->set_text("Add Dependency:");
+	dep_section->add_child(search_label);
+
+	HBoxContainer *search_row = memnew(HBoxContainer);
+	search_row->add_theme_constant_override("separation", 6);
+
+	dep_search_input = memnew(LineEdit);
+	dep_search_input->set_placeholder("Search mods...");
+	dep_search_input->set_h_size_flags(SIZE_EXPAND_FILL);
+	search_row->add_child(dep_search_input);
+
+	Button *search_btn = memnew(Button);
+	search_btn->set_text("Search");
+	search_btn->connect("pressed", callable_mp(this, &ModIOMainScreen::_on_dep_search));
+	search_row->add_child(search_btn);
+
+	dep_section->add_child(search_row);
+
+	// Search results.
+	dep_search_results = memnew(VBoxContainer);
+	dep_search_results->add_theme_constant_override("separation", 4);
+	dep_section->add_child(dep_search_results);
+
+	// Status.
+	dep_status = memnew(RichTextLabel);
+	dep_status->set_use_bbcode(true);
+	dep_status->set_fit_content(true);
+	dep_status->set_scroll_active(false);
+	dep_section->add_child(dep_status);
+}
+
+void ModIOMainScreen::_on_dep_search() {
+	String query = dep_search_input->get_text().strip_edges();
+
+	ModIOUploader *uploader = ModIOUploader::get_singleton();
+	if (!uploader || !uploader->is_authenticated()) {
+		dep_status->set_text("[color=red]Log in first.[/color]");
+		return;
+	}
+
+	if (!dep_http) {
+		dep_http = memnew(HTTPRequest);
+		dep_http->set_timeout(15.0);
+		add_child(dep_http);
+		dep_http->connect("request_completed", callable_mp(this, &ModIOMainScreen::_on_dep_search_response));
+	}
+
+	String url = vformat("https://g-11342.modapi.io/v1/games/%d/mods?api_key=%s&_limit=20",
+			ModIOUploader::BLOSSOM_GAME_ID, ModIOUploader::BLOSSOM_API_KEY);
+	if (!query.is_empty()) {
+		url += "&_q=" + query.uri_encode();
+	}
+
+	dep_status->set_text("[color=cyan]Searching...[/color]");
+	dep_http->request(url);
+}
+
+void ModIOMainScreen::_on_dep_search_response(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body) {
+	// Clear old results.
+	while (dep_search_results->get_child_count() > 0) {
+		dep_search_results->get_child(0)->queue_free();
+		dep_search_results->remove_child(dep_search_results->get_child(0));
+	}
+	search_results.clear();
+
+	if (p_response_code != 200) {
+		dep_status->set_text("[color=red]Search failed.[/color]");
+		return;
+	}
+
+	String body_str;
+	if (!p_body.is_empty()) {
+		const uint8_t *r = p_body.ptr();
+		body_str = String::utf8((const char *)r, p_body.size());
+	}
+
+	Variant parsed = JSON::parse_string(body_str);
+	if (parsed.get_type() != Variant::DICTIONARY) {
+		dep_status->set_text("[color=red]Invalid response.[/color]");
+		return;
+	}
+
+	Dictionary data = parsed;
+	Array mods_array = data.get("data", Array());
+
+	// Get selected UGC's mod ID to exclude from results.
+	int self_id = 0;
+	String ugc_path = _get_selected_ugc_path();
+	if (!ugc_path.is_empty()) {
+		String cfg_path = ProjectSettings::get_singleton()->globalize_path(ugc_path).path_join("mod.cfg");
+		Ref<ConfigFile> cfg;
+		cfg.instantiate();
+		if (cfg->load(cfg_path) == OK) {
+			self_id = cfg->get_value("mod", "modio_id", 0);
+		}
+	}
+
+	for (int i = 0; i < mods_array.size(); i++) {
+		Dictionary mod = mods_array[i];
+		int mod_id = mod.get("id", 0);
+		String mod_name = mod.get("name", "");
+		String mod_summary = mod.get("summary", "");
+
+		if (mod_id == self_id) {
+			continue; // Don't show self.
+		}
+
+		ModEntry entry;
+		entry.id = mod_id;
+		entry.name = mod_name;
+		entry.summary = mod_summary;
+		search_results.push_back(entry);
+
+		// Create result row.
+		HBoxContainer *row = memnew(HBoxContainer);
+		row->add_theme_constant_override("separation", 8);
+
+		RichTextLabel *info = memnew(RichTextLabel);
+		info->set_use_bbcode(true);
+		info->set_fit_content(true);
+		info->set_scroll_active(false);
+		info->set_h_size_flags(SIZE_EXPAND_FILL);
+		info->set_text(vformat("[b]%s[/b] [color=gray](ID: %d)[/color]\n%s", mod_name, mod_id, mod_summary));
+		row->add_child(info);
+
+		Button *add_btn = memnew(Button);
+		add_btn->set_text("Add");
+		add_btn->connect("pressed", callable_mp(this, &ModIOMainScreen::_on_dep_add).bind(mod_id));
+		row->add_child(add_btn);
+
+		dep_search_results->add_child(row);
+	}
+
+	dep_status->set_text(vformat("[color=green]Found %d mod(s).[/color]", search_results.size()));
+}
+
+void ModIOMainScreen::_on_dep_add(int p_mod_id) {
+	String ugc_path = _get_selected_ugc_path();
+	if (ugc_path.is_empty()) {
+		dep_status->set_text("[color=red]Select a UGC project first.[/color]");
+		return;
+	}
+
+	ModIOUploader *uploader = ModIOUploader::get_singleton();
+	if (!uploader || !uploader->is_authenticated()) {
+		dep_status->set_text("[color=red]Log in first.[/color]");
+		return;
+	}
+
+	// Get this UGC's mod.io ID.
+	String cfg_path = ProjectSettings::get_singleton()->globalize_path(ugc_path).path_join("mod.cfg");
+	Ref<ConfigFile> cfg;
+	cfg.instantiate();
+	int self_id = 0;
+	if (cfg->load(cfg_path) == OK) {
+		self_id = cfg->get_value("mod", "modio_id", 0);
+	}
+
+	if (self_id == 0) {
+		dep_status->set_text("[color=red]Selected UGC has no mod.io ID.[/color]");
+		return;
+	}
+
+	dep_selected_mod_id = p_mod_id;
+
+	if (!dep_action_http) {
+		dep_action_http = memnew(HTTPRequest);
+		dep_action_http->set_timeout(15.0);
+		add_child(dep_action_http);
+		dep_action_http->connect("request_completed", callable_mp(this, &ModIOMainScreen::_on_dep_add_response));
+	}
+
+	String url = vformat("https://g-11342.modapi.io/v1/games/%d/mods/%d/dependencies",
+			ModIOUploader::BLOSSOM_GAME_ID, self_id);
+
+	PackedStringArray headers;
+	headers.push_back("Authorization: Bearer " + uploader->get_access_token());
+	headers.push_back("Content-Type: application/x-www-form-urlencoded");
+
+	String body = vformat("dependencies[]=%d", p_mod_id);
+
+	dep_status->set_text("[color=cyan]Adding dependency...[/color]");
+	print_line(vformat("[ModIO] Adding dependency %d to mod %d", p_mod_id, self_id));
+	dep_action_http->request(url, headers, HTTPClient::METHOD_POST, body);
+}
+
+void ModIOMainScreen::_on_dep_add_response(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body) {
+	String body_str;
+	if (!p_body.is_empty()) {
+		const uint8_t *r = p_body.ptr();
+		body_str = String::utf8((const char *)r, p_body.size());
+	}
+	print_line(vformat("[ModIO] Add dependency response (%d): %s", p_response_code, body_str));
+
+	if (p_response_code == 201 || p_response_code == 204) {
+		dep_status->set_text("[color=green]Dependency added![/color]");
+		_on_dep_load(); // Refresh the list.
+	} else {
+		dep_status->set_text(vformat("[color=red]Failed to add dependency (%d): %s[/color]", p_response_code, body_str));
+	}
+}
+
+void ModIOMainScreen::_on_dep_load() {
+	String ugc_path = _get_selected_ugc_path();
+	if (ugc_path.is_empty()) {
+		dep_status->set_text("[color=yellow]Select a UGC project to see dependencies.[/color]");
+		return;
+	}
+
+	String cfg_path = ProjectSettings::get_singleton()->globalize_path(ugc_path).path_join("mod.cfg");
+	Ref<ConfigFile> cfg;
+	cfg.instantiate();
+	int self_id = 0;
+	if (cfg->load(cfg_path) == OK) {
+		self_id = cfg->get_value("mod", "modio_id", 0);
+	}
+
+	if (self_id == 0) {
+		dep_status->set_text("[color=yellow]Selected UGC has no mod.io ID.[/color]");
+		return;
+	}
+
+	if (!dep_http) {
+		dep_http = memnew(HTTPRequest);
+		dep_http->set_timeout(15.0);
+		add_child(dep_http);
+	}
+	// Disconnect search handler and connect load handler.
+	if (dep_http->is_connected("request_completed", callable_mp(this, &ModIOMainScreen::_on_dep_search_response))) {
+		dep_http->disconnect("request_completed", callable_mp(this, &ModIOMainScreen::_on_dep_search_response));
+	}
+	if (!dep_http->is_connected("request_completed", callable_mp(this, &ModIOMainScreen::_on_dep_load_response))) {
+		dep_http->connect("request_completed", callable_mp(this, &ModIOMainScreen::_on_dep_load_response));
+	}
+
+	String url = vformat("https://g-11342.modapi.io/v1/games/%d/mods/%d/dependencies?api_key=%s",
+			ModIOUploader::BLOSSOM_GAME_ID, self_id, ModIOUploader::BLOSSOM_API_KEY);
+
+	dep_status->set_text("[color=cyan]Loading dependencies...[/color]");
+	dep_http->request(url);
+}
+
+void ModIOMainScreen::_on_dep_load_response(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body) {
+	// Reconnect search handler.
+	if (dep_http->is_connected("request_completed", callable_mp(this, &ModIOMainScreen::_on_dep_load_response))) {
+		dep_http->disconnect("request_completed", callable_mp(this, &ModIOMainScreen::_on_dep_load_response));
+	}
+	if (!dep_http->is_connected("request_completed", callable_mp(this, &ModIOMainScreen::_on_dep_search_response))) {
+		dep_http->connect("request_completed", callable_mp(this, &ModIOMainScreen::_on_dep_search_response));
+	}
+
+	// Clear old list.
+	while (dep_list->get_child_count() > 0) {
+		dep_list->get_child(0)->queue_free();
+		dep_list->remove_child(dep_list->get_child(0));
+	}
+	current_dependencies.clear();
+
+	if (p_response_code != 200) {
+		dep_status->set_text("[color=yellow]No dependencies found.[/color]");
+		return;
+	}
+
+	String body_str;
+	if (!p_body.is_empty()) {
+		const uint8_t *r = p_body.ptr();
+		body_str = String::utf8((const char *)r, p_body.size());
+	}
+
+	Variant parsed = JSON::parse_string(body_str);
+	if (parsed.get_type() != Variant::DICTIONARY) {
+		return;
+	}
+
+	Dictionary data = parsed;
+	Array deps = data.get("data", Array());
+
+	for (int i = 0; i < deps.size(); i++) {
+		Dictionary dep = deps[i];
+		int dep_id = dep.get("mod_id", 0);
+		String dep_name = dep.get("name", vformat("Mod %d", dep_id));
+
+		ModEntry entry;
+		entry.id = dep_id;
+		entry.name = dep_name;
+		current_dependencies.push_back(entry);
+
+		Label *dep_label = memnew(Label);
+		dep_label->set_text(vformat("  - %s (ID: %d)", dep_name, dep_id));
+		dep_list->add_child(dep_label);
+	}
+
+	if (deps.is_empty()) {
+		Label *none_label = memnew(Label);
+		none_label->set_text("  (none)");
+		dep_list->add_child(none_label);
+	}
+
+	dep_status->set_text(vformat("[color=green]%d dependency(ies) loaded.[/color]", deps.size()));
 }
 
 void ModIOMainScreen::_scan_ugc_projects() {

@@ -69,6 +69,32 @@ class ModIOMainScreen : public Control {
 
 	void _scan_ugc_projects();
 	String _get_selected_ugc_path() const;
+
+	// Dependency browser.
+	VBoxContainer *dep_section = nullptr;
+	HTTPRequest *dep_http = nullptr;
+	VBoxContainer *dep_list = nullptr;
+	VBoxContainer *dep_search_results = nullptr;
+	LineEdit *dep_search_input = nullptr;
+	RichTextLabel *dep_status = nullptr;
+
+	struct ModEntry {
+		int id = 0;
+		String name;
+		String summary;
+	};
+	Vector<ModEntry> search_results;
+	Vector<ModEntry> current_dependencies;
+
+	void _build_dep_section(VBoxContainer *p_root);
+	void _on_dep_search();
+	void _on_dep_search_response(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body);
+	void _on_dep_add(int p_mod_id);
+	void _on_dep_add_response(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body);
+	void _on_dep_load();
+	void _on_dep_load_response(int p_result, int p_response_code, const PackedStringArray &p_headers, const PackedByteArray &p_body);
+	int dep_selected_mod_id = 0;
+	HTTPRequest *dep_action_http = nullptr;
 	void _on_send_code();
 	void _on_verify_code();
 	void _update_locked_state();
@@ -94,7 +120,7 @@ protected:
 	void _notification(int p_what);
 
 public:
-	virtual String get_plugin_name() const override { return "Mods"; }
+	virtual String get_plugin_name() const override { return "UGC"; }
 	virtual bool has_main_screen() const override { return true; }
 	virtual const Ref<Texture2D> get_plugin_icon() const override;
 	virtual void make_visible(bool p_visible) override;

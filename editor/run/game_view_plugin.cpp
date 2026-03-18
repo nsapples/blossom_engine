@@ -33,7 +33,7 @@
 #include "core/config/project_settings.h"
 #include "core/debugger/debugger_marshalls.h"
 #include "core/object/callable_mp.h"
-#include "core/object/class_db.h"
+#include "core/object/class_db.h" // IWYU pragma: keep. `ADD_SIGNAL` macro.
 #include "core/os/process_id.h"
 #include "core/string/translation_server.h"
 #include "editor/debugger/editor_debugger_node.h"
@@ -66,6 +66,7 @@ void GameViewDebugger::_session_started(Ref<EditorDebuggerSession> p_session) {
 
 	Dictionary settings;
 	settings["debugger/max_node_selection"] = EDITOR_GET("debugger/max_node_selection");
+	settings["editors/2d/selection_rectangle_color"] = EDITOR_GET("editors/2d/selection_rectangle_color");
 	settings["editors/panning/2d_editor_panning_scheme"] = EDITOR_GET("editors/panning/2d_editor_panning_scheme");
 	settings["editors/panning/simple_panning"] = EDITOR_GET("editors/panning/simple_panning");
 	settings["editors/panning/warped_mouse_panning"] = EDITOR_GET("editors/panning/warped_mouse_panning");
@@ -1623,8 +1624,7 @@ GameViewPluginBase::GameViewPluginBase() {
 #endif
 }
 
-GameViewPlugin::GameViewPlugin() :
-		GameViewPluginBase() {
+GameViewPlugin::GameViewPlugin() {
 #ifndef ANDROID_ENABLED
 	Ref<GameViewDebugger> game_view_debugger;
 	game_view_debugger.instantiate();

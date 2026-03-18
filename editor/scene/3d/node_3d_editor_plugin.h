@@ -37,6 +37,7 @@
 #include "scene/debugger/view_3d_controller.h"
 #include "scene/gui/box_container.h"
 #include "scene/gui/button.h"
+#include "scene/gui/margin_container.h"
 #include "scene/gui/spin_box.h"
 #include "scene/resources/gradient.h"
 #include "scene/resources/immediate_mesh.h"
@@ -58,6 +59,7 @@ class OptionButton;
 class PanelContainer;
 class ProceduralSkyMaterial;
 class RichTextLabel;
+class SplitContainer;
 class SubViewport;
 class SubViewportContainer;
 class VSeparator;
@@ -87,6 +89,7 @@ class ViewportRotationControl : public Control {
 	Vector<int> axis_menu_options;
 	Vector2i orbiting_mouse_start;
 	Point2 original_mouse_pos;
+	View3DController::Cursor saved_cursor;
 	int orbiting_index = -1;
 	int focused_axis = -2;
 	bool gizmo_activated = false;
@@ -219,6 +222,7 @@ private:
 	Button *translation_preview_button = nullptr;
 	Button *follow_mode = nullptr;
 	CheckBox *preview_camera = nullptr;
+	CheckBox *pilot_camera = nullptr;
 	SubViewportContainer *subviewport_container = nullptr;
 
 	MenuButton *view_display_menu = nullptr;
@@ -231,6 +235,16 @@ private:
 	bool transform_gizmo_visible = true;
 	bool collision_reposition = false;
 	real_t gizmo_scale;
+
+	bool vertex_snap_mode = false;
+	Key vertex_snap_keycode = Key::NONE;
+	bool vertex_snap_dragging = false;
+	Vector3 vertex_snap_source;
+	Plane vertex_snap_drag_plane;
+	Vector3 vertex_snap_target;
+	bool vertex_snap_has_target = false;
+	bool vertex_snap_has_source = false;
+	HashMap<ObjectID, Vector3> vertex_snap_original_positions;
 
 	PanelContainer *info_panel = nullptr;
 	Label *info_label = nullptr;
@@ -268,6 +282,14 @@ private:
 	ObjectID _select_ray(const Point2 &p_pos) const;
 	void _find_items_at_pos(const Point2 &p_pos, Vector<_RayResult> &r_results, bool p_include_locked);
 
+	float _min_screen_dist_to_aabb(const AABB &p_aabb, const Transform3D &p_transform, const Point2 &p_cursor) const;
+	bool _find_closest_vertex_on_node(const Point2 &p_screen_pos, Node3D *p_node, float &r_closest_screen_dist, Vector3 &r_vertex_world) const;
+	bool _find_closest_vertex_in_scene(const Point2 &p_screen_pos, float p_threshold, Vector3 &r_vertex_world, const HashMap<ObjectID, Vector3> *p_exclude = nullptr);
+	void _vertex_snap_update_source(const Point2 &p_screen_pos);
+	void _vertex_snap_commit();
+	void _vertex_snap_cancel();
+	bool _is_vertex_occluded(const Vector3 &p_world_pos, const Vector2 &p_screen_pos) const;
+
 	Transform3D _get_camera_transform() const;
 	int get_selected_count() const;
 	void cancel_transform();
@@ -276,6 +298,7 @@ private:
 	Vector3 _get_camera_position() const;
 	Vector3 _get_camera_normal() const;
 	Vector3 _get_screen_to_space(const Vector3 &p_vector3);
+	Vector<Plane> _build_screen_frustum(const Point2 &p_min, const Point2 &p_max);
 
 	void _select_region();
 	bool _transform_gizmo_select(const Vector2 &p_screenpos, bool p_highlight_only = false);
@@ -356,6 +379,8 @@ private:
 		Vector3 initial_click_vector;
 		Vector3 previous_rotation_vector;
 		bool gizmo_initiated = false;
+
+		HashMap<Node3D *, Transform3D> children_original_globals;
 	} _edit;
 
 	Ref<View3DController> view_3d_controller;
@@ -365,8 +390,6 @@ private:
 
 	void _freelook_changed();
 	void _freelook_speed_scaled();
-
-	View3DController::Cursor previous_cursor; // Storing previous cursor state for canceling purposes.
 
 	real_t zoom_indicator_delay;
 	int zoom_failed_attempts_count = 0;
@@ -404,12 +427,16 @@ private:
 	bool previewing_camera = false;
 	bool previewing_cinema = false;
 	int times_focused_consecutively = 0;
+	bool pilot_preview_enabled = false;
 	bool _is_node_locked(const Node *p_node) const;
 	void _preview_exited_scene();
 	void _preview_camera_property_changed();
+	void _sync_cursor_from_transform(const Transform3D &p_transform);
 	void _update_centered_labels();
 	void _disable_follow_mode();
+	void _reset_follow_mode_count();
 	void _toggle_camera_preview(bool);
+	void _toggle_pilot_preview(bool);
 	void _toggle_cinema_preview(bool);
 	void _init_gizmo_instance(int p_idx);
 	void _finish_gizmo_instances();
@@ -472,6 +499,7 @@ public:
 	void update_transform_gizmo_highlight();
 
 	void set_can_preview(Camera3D *p_preview);
+	void switch_preview_camera(Camera3D *p_new_camera);
 	void set_state(const Dictionary &p_state);
 	Dictionary get_state() const;
 	void reset();
@@ -519,8 +547,8 @@ public:
 	~Node3DEditorSelectedItem();
 };
 
-class Node3DEditorViewportContainer : public Container {
-	GDCLASS(Node3DEditorViewportContainer, Container);
+class Node3DEditorViewportContainer : public MarginContainer {
+	GDCLASS(Node3DEditorViewportContainer, MarginContainer);
 
 public:
 	enum View {
@@ -533,20 +561,12 @@ public:
 	};
 
 private:
-	View view;
-	bool mouseover;
-	real_t ratio_h;
-	real_t ratio_v;
+	View view = VIEW_USE_1_VIEWPORT;
+	SplitContainer *main_split = nullptr;
+	SplitContainer *first_split = nullptr;
+	SplitContainer *second_split = nullptr;
 
-	bool hovering_v;
-	bool hovering_h;
-
-	bool dragging_v;
-	bool dragging_h;
-	Vector2 drag_begin_pos;
-	Vector2 drag_begin_ratio;
-
-	virtual void gui_input(const Ref<InputEvent> &p_event) override;
+	void _update_split_drag_margin();
 
 protected:
 	void _notification(int p_what);
@@ -554,6 +574,8 @@ protected:
 public:
 	void set_view(View p_view);
 	View get_view();
+
+	void add_viewport(Node3DEditorViewport *p_viewport, int p_index);
 
 	Node3DEditorViewportContainer();
 };
@@ -583,6 +605,7 @@ public:
 		TOOL_OPT_LOCAL_COORDS,
 		TOOL_OPT_USE_SNAP,
 		TOOL_OPT_USE_TRACKBALL,
+		TOOL_OPT_PRESERVE_CHILDREN_TRANSFORM,
 		TOOL_OPT_MAX
 	};
 
@@ -686,6 +709,7 @@ private:
 		MENU_TOOL_LOCAL_COORDS,
 		MENU_TOOL_USE_SNAP,
 		MENU_TOOL_USE_TRACKBALL,
+		MENU_TOOL_PRESERVE_CHILDREN_TRANSFORM,
 		MENU_TRANSFORM_CONFIGURE_SNAP,
 		MENU_TRANSFORM_DIALOG,
 		MENU_VIEW_USE_1_VIEWPORT,
@@ -704,6 +728,8 @@ private:
 		MENU_UNGROUP_SELECTED,
 		MENU_SNAP_TO_FLOOR,
 		MENU_RULER,
+		MENU_VERTEX_SNAP_BASE_VERTEX,
+		MENU_VERTEX_SNAP_BASE_ORIGIN,
 	};
 
 	Button *tool_button[TOOL_MAX];
@@ -721,6 +747,7 @@ private:
 
 	bool snap_enabled = false;
 	bool snap_key_enabled = false;
+	bool vertex_snap_origin_mode = false;
 	EditorSpinSlider *snap_translate = nullptr;
 	EditorSpinSlider *snap_rotate = nullptr;
 	EditorSpinSlider *snap_scale = nullptr;
@@ -739,6 +766,7 @@ private:
 
 	void _snap_changed();
 	void _snap_update();
+	void _update_vertex_snap_tooltips();
 	void _xform_dialog_action();
 	void _menu_item_pressed(int p_option);
 	void _menu_item_toggled(bool pressed, int p_option);
@@ -877,6 +905,8 @@ private:
 
 	void _update_theme();
 
+	void _undo_redo_inspector_callback(Object *p_undo_redo, Object *p_edited, const String &p_property, const Variant &p_new_value);
+
 protected:
 	void _notification(int p_what);
 	//void _gui_input(InputEvent p_event);
@@ -901,7 +931,9 @@ public:
 	ToolMode get_tool_mode() const { return tool_mode; }
 	bool are_local_coords_enabled() const { return tool_option_button[Node3DEditor::TOOL_OPT_LOCAL_COORDS]->is_pressed(); }
 	void set_local_coords_enabled(bool on) const { tool_option_button[Node3DEditor::TOOL_OPT_LOCAL_COORDS]->set_pressed(on); }
+	bool is_preserve_children_transform_enabled() const { return tool_option_button[Node3DEditor::TOOL_OPT_PRESERVE_CHILDREN_TRANSFORM]->is_pressed(); }
 	bool is_snap_enabled() const { return snap_enabled ^ snap_key_enabled; }
+	bool is_vertex_snap_origin_mode() const { return vertex_snap_origin_mode; }
 	real_t get_translate_snap() const;
 	real_t get_rotate_snap() const;
 	real_t get_scale_snap() const;

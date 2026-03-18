@@ -19,6 +19,7 @@
 #include "scene/gui/option_button.h"
 #include "scene/gui/panel_container.h"
 #include "scene/gui/rich_text_label.h"
+#include "scene/gui/check_box.h"
 #include "scene/gui/separator.h"
 #include "scene/gui/text_edit.h"
 #include "scene/main/http_request.h"
@@ -34,6 +35,7 @@ class ModIOMainScreen : public Control {
 	LineEdit *ugc_summary_input = nullptr;
 	LineEdit *ugc_logo_input = nullptr;
 	OptionButton *ugc_type_dropdown = nullptr;
+	CheckBox *ugc_dependency_check = nullptr;
 	RichTextLabel *create_status = nullptr;
 	HTTPRequest *create_http = nullptr;
 

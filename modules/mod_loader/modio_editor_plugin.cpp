@@ -181,6 +181,11 @@ void ModIOMainScreen::_build_create_section(VBoxContainer *p_root) {
 
 	create_section->add_child(logo_row);
 
+	// Dependency opt-in.
+	ugc_dependency_check = memnew(CheckBox);
+	ugc_dependency_check->set_text("Allow other mods to use this as a dependency");
+	create_section->add_child(ugc_dependency_check);
+
 	// Create button.
 	Button *create_btn = memnew(Button);
 	create_btn->set_text("Create UGC Project");
@@ -251,6 +256,9 @@ void ModIOMainScreen::_on_create_ugc() {
 	add_field("summary", mod_summary);
 	add_field("visible", "0");
 	add_field("tags[]", type_tag);
+	if (ugc_dependency_check->is_pressed()) {
+		add_field("tags[]", "dependency");
+	}
 
 	// Add logo file (required by mod.io).
 	String logo_path = ugc_logo_input->get_text().strip_edges();
@@ -664,7 +672,7 @@ void ModIOMainScreen::_on_dep_search() {
 		dep_http->connect("request_completed", callable_mp(this, &ModIOMainScreen::_on_dep_search_response));
 	}
 
-	String url = vformat("https://g-11342.modapi.io/v1/games/%d/mods?api_key=%s&_limit=20",
+	String url = vformat("https://g-11342.modapi.io/v1/games/%d/mods?api_key=%s&_limit=20&tags=dependency",
 			ModIOUploader::BLOSSOM_GAME_ID, ModIOUploader::BLOSSOM_API_KEY);
 	if (!query.is_empty()) {
 		url += "&_q=" + query.uri_encode();

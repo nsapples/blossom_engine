@@ -65,7 +65,7 @@ void DebugRayDraw::_ensure_draw_nodes(Node *p_parent) {
 	mat->set_shading_mode(BaseMaterial3D::SHADING_MODE_UNSHADED);
 	mat->set_flag(BaseMaterial3D::FLAG_ALBEDO_FROM_VERTEX_COLOR, true);
 	mat->set_transparency(BaseMaterial3D::TRANSPARENCY_ALPHA);
-	mat->set_no_depth_test(true);
+	mat->set_flag(BaseMaterial3D::FLAG_DISABLE_DEPTH_TEST, true);
 	mesh_instance->set_surface_override_material(0, mat);
 
 	p_parent->add_child(mesh_instance);

@@ -19,7 +19,21 @@
 void AutoLOD::_discover_meshes() {
 	tracked_meshes.clear();
 
-	TypedArray<Node> nodes = get_tree()->get_current_scene()->find_children("*", "MeshInstance3D", true, false);
+	if (!is_inside_tree()) {
+		return;
+	}
+
+	SceneTree *tree = get_tree();
+	if (!tree) {
+		return;
+	}
+
+	Node *scene = tree->get_current_scene();
+	if (!scene) {
+		return;
+	}
+
+	TypedArray<Node> nodes = scene->find_children("*", "MeshInstance3D", true, false);
 	for (int i = 0; i < nodes.size(); i++) {
 		MeshInstance3D *mi = Object::cast_to<MeshInstance3D>(nodes[i].operator Object *());
 		if (mi && mi->get_mesh().is_valid()) {
@@ -272,13 +286,20 @@ void AutoLOD::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_PROCESS: {
+			if (!is_inside_tree()) {
+				return;
+			}
 			frame_counter++;
 			if (frame_counter < update_interval_frames) {
 				return;
 			}
 			frame_counter = 0;
 
-			Camera3D *camera = get_viewport()->get_camera_3d();
+			Viewport *vp = get_viewport();
+			if (!vp) {
+				return;
+			}
+			Camera3D *camera = vp->get_camera_3d();
 			if (!camera) {
 				return;
 			}

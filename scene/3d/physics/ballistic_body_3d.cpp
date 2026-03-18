@@ -9,6 +9,7 @@
 #include "ballistic_body_3d.h"
 
 #include "core/object/class_db.h"
+#include "scene/3d/debug_ray_draw.h"
 #include "scene/3d/physics/physics_body_3d.h"
 #include "scene/3d/physics/static_body_3d.h"
 #include "scene/main/scene_tree.h"
@@ -51,6 +52,11 @@ void BallisticBody3D::_perform_raycast(PhysicsDirectBodyState3D *p_state) {
 
 	PhysicsDirectSpaceState3D::RayResult result;
 	bool col = space->intersect_ray(params, result);
+
+	// Report to debug ray draw.
+	if (DebugRayDraw::get_singleton() && DebugRayDraw::get_singleton()->is_enabled()) {
+		DebugRayDraw::get_singleton()->add_ray(ray_from, col ? result.position : ray_to, col, Color(1.0, 0.3, 0.1));
+	}
 
 	if (col) {
 		hit_position = result.position;

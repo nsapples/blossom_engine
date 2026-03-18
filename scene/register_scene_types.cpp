@@ -226,6 +226,7 @@
 #include "scene/3d/aim_modifier_3d.h"
 #include "scene/3d/auto_lod.h"
 #include "scene/3d/audio_listener_3d.h"
+#include "scene/3d/debug_ray_draw.h"
 #include "scene/3d/audio_stream_player_3d.h"
 #include "scene/3d/bone_attachment_3d.h"
 #include "scene/3d/bone_constraint_3d.h"
@@ -1509,6 +1510,9 @@ void register_scene_singletons() {
 
 	Engine::get_singleton()->add_singleton(Engine::Singleton("ThemeDB", ThemeDB::get_singleton()));
 	Engine::get_singleton()->add_singleton(Engine::Singleton("TextureStreamingManager", memnew(TextureStreamingManager)));
+
+	GDREGISTER_CLASS(DebugRayDraw);
+	Engine::get_singleton()->add_singleton(Engine::Singleton("DebugRayDraw", memnew(DebugRayDraw)));
 
 	OS::get_singleton()->benchmark_end_measure("Scene", "Register Singletons");
 }

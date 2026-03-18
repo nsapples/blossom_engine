@@ -9,6 +9,7 @@
 #include "spatial_audio_player_3d.h"
 
 #include "core/object/class_db.h"
+#include "scene/3d/debug_ray_draw.h"
 #include "scene/3d/physics/area_3d.h"
 #include "scene/3d/camera_3d.h"
 #include "scene/3d/physics/rigid_body_3d.h"
@@ -149,6 +150,11 @@ void SpatialAudioPlayer3D::_update_occlusion(PhysicsDirectSpaceState3D *p_space,
 		PhysicsDirectSpaceState3D::RayResult result;
 		bool hit = p_space->intersect_ray(params, result);
 
+		// Report to debug ray draw.
+		if (DebugRayDraw::get_singleton() && DebugRayDraw::get_singleton()->is_enabled()) {
+			DebugRayDraw::get_singleton()->add_ray(ray_from, hit ? result.position : p_listener_pos, hit, Color(0.2, 0.6, 1.0));
+		}
+
 		if (!hit) {
 			break;
 		}
@@ -212,6 +218,11 @@ void SpatialAudioPlayer3D::_update_reverb(PhysicsDirectSpaceState3D *p_space, re
 
 		PhysicsDirectSpaceState3D::RayResult result;
 		bool hit = p_space->intersect_ray(params, result);
+
+		// Report to debug ray draw.
+		if (DebugRayDraw::get_singleton() && DebugRayDraw::get_singleton()->is_enabled()) {
+			DebugRayDraw::get_singleton()->add_ray(origin, hit ? result.position : origin + dir * max_reverb_distance, hit, Color(0.4, 1.0, 0.4));
+		}
 
 		if (hit) {
 			real_t dist = origin.distance_to(result.position);

@@ -1,8 +1,8 @@
 short_name = "blossom"
 name = "Blossom Engine"
-major = 0
-minor = 0
-patch = 4
+major = 4
+minor = 7
+patch = 0
 status = "stable"
 module_config = ""
 website = "https://github.com/nsapples/blossom_engine"

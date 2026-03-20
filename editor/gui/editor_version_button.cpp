@@ -34,19 +34,22 @@
 #include "core/version.h"
 #include "servers/display/display_server.h"
 
+// Blossom Engine display version (separate from Godot compatibility version).
+#define BLOSSOM_VERSION "0.0.5"
+
 String _get_version_string(EditorVersionButton::VersionFormat p_format) {
 	switch (p_format) {
 		case EditorVersionButton::FORMAT_BASIC: {
-			return GODOT_VERSION_NUMBER;
+			return BLOSSOM_VERSION;
 		} break;
 		case EditorVersionButton::FORMAT_WITH_BUILD: {
-			return vformat("v%s %s", GODOT_VERSION_NUMBER, GODOT_VERSION_NAME);
+			return vformat("v%s %s", BLOSSOM_VERSION, GODOT_VERSION_NAME);
 		} break;
 		case EditorVersionButton::FORMAT_WITH_NAME_AND_BUILD: {
-			return vformat("%s v%s", GODOT_VERSION_NAME, GODOT_VERSION_NUMBER);
+			return vformat("%s v%s", GODOT_VERSION_NAME, BLOSSOM_VERSION);
 		} break;
 		default: {
-			ERR_FAIL_V_MSG(GODOT_VERSION_NUMBER, "Unexpected format: " + itos(p_format));
+			ERR_FAIL_V_MSG(BLOSSOM_VERSION, "Unexpected format: " + itos(p_format));
 		} break;
 	}
 }

@@ -103,13 +103,18 @@ void EngineUpdateLabel::_http_request_completed(int p_result, int p_response_cod
 		remote_patch = version_bits[2].to_int();
 	}
 
+	// Compare against Blossom Engine version, not Godot version.
+	static constexpr int BLOSSOM_MAJOR = 0;
+	static constexpr int BLOSSOM_MINOR = 0;
+	static constexpr int BLOSSOM_PATCH = 5;
+
 	bool is_newer = false;
-	if (remote_major > GODOT_VERSION_MAJOR) {
+	if (remote_major > BLOSSOM_MAJOR) {
 		is_newer = true;
-	} else if (remote_major == GODOT_VERSION_MAJOR) {
-		if (remote_minor > GODOT_VERSION_MINOR) {
+	} else if (remote_major == BLOSSOM_MAJOR) {
+		if (remote_minor > BLOSSOM_MINOR) {
 			is_newer = true;
-		} else if (remote_minor == GODOT_VERSION_MINOR && remote_patch > GODOT_VERSION_PATCH) {
+		} else if (remote_minor == BLOSSOM_MINOR && remote_patch > BLOSSOM_PATCH) {
 			is_newer = true;
 		}
 	}

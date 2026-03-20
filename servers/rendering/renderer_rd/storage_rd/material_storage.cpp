@@ -2393,7 +2393,6 @@ void MaterialStorage::_material_uniform_set_erased(void *p_material) {
 			// if a texture is deleted, so re-create it.
 			MaterialStorage::get_singleton()->_material_queue_update(material, false, true);
 		}
-		material->rt_invalidation_counter++;
 		material->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_MATERIAL);
 	}
 }
@@ -2472,9 +2471,6 @@ void MaterialStorage::material_set_shader(RID p_material, RID p_shader) {
 	Material *material = material_owner.get_or_null(p_material);
 	ERR_FAIL_NULL(material);
 
-	// Invalidate RT cache for this material (shader change).
-	material->rt_invalidation_counter++;
-
 	if (material->data) {
 		memdelete(material->data);
 		material->data = nullptr;
@@ -2523,14 +2519,6 @@ MaterialStorage::ShaderData *MaterialStorage::material_get_shader_data(RID p_mat
 	return nullptr;
 }
 
-String MaterialStorage::material_get_shader_code(RID p_material) const {
-	const Material *material = material_owner.get_or_null(p_material);
-	if (material && material->shader) {
-		return material->shader->code;
-	}
-	return String();
-}
-
 void MaterialStorage::material_set_param(RID p_material, const StringName &p_param, const Variant &p_value) {
 	Material *material = material_owner.get_or_null(p_material);
 	ERR_FAIL_NULL(material);
@@ -2541,9 +2529,6 @@ void MaterialStorage::material_set_param(RID p_material, const StringName &p_par
 		ERR_FAIL_COND(p_value.get_type() == Variant::OBJECT); //object not allowed
 		material->params[p_param] = p_value;
 	}
-
-	// Invalidate RT cache for this material.
-	material->rt_invalidation_counter++;
 
 	if (material->shader && material->shader->data) { //shader is valid
 		bool is_texture = material->shader->data->is_parameter_texture(p_param);

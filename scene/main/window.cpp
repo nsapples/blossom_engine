@@ -925,8 +925,6 @@ void Window::_event_callback(DisplayServerEnums::WindowEvent p_event) {
 		case DisplayServerEnums::WINDOW_EVENT_FORCE_CLOSE: {
 			hide();
 		} break;
-		case DisplayServerEnums::WINDOW_EVENT_PCL_PING: {
-		} break;
 	}
 }
 
